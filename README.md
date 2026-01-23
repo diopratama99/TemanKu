@@ -2,11 +2,11 @@
 
 Teman kecil yang bantu jagain keuanganmu
 
-## 📖 Deskripsi
+## Deskripsi
 
 Temanku adalah aplikasi manajemen keuangan pribadi yang membantu Anda melacak pengeluaran, pemasukan, dan mengelola budget dengan mudah dan intuitif.
 
-## ✨ Fitur
+## Fitur
 
 - 📊 **Dashboard Interaktif** - Visualisasi keuangan dengan grafik dan chart
 - 💰 **Transaksi** - Catat pemasukan dan pengeluaran dengan mudah
@@ -23,12 +23,12 @@ Temanku adalah aplikasi manajemen keuangan pribadi yang membantu Anda melacak pe
   - Correlation analysis income vs expense
   - Statistical insights (mean, std dev, etc)
 - 🔄 **Monthly Comparison** - Bandingkan pengeluaran 2 bulan dengan uji hipotesis statistik
-- �📤 **Import/Export** - Import dan export data dalam format CSV
+- 📤 **Import/Export** - Import dan export data dalam format CSV
 - 🔐 **Autentikasi** - Login dengan email/password atau Google Sign-In
 - 🔄 **Reset Data** - Hapus semua data dengan verifikasi 2 langkah
 - 🌙 **Dark Mode** - Support mode gelap (coming soon)
 
-## 🚀 Getting Started
+## Getting Started
 
 ### Prerequisites
 
@@ -70,7 +70,7 @@ dart run flutter_native_splash:create
 flutter run
 ```
 
-## 🏗️ Build
+## Build
 
 ### Android APK
 
@@ -90,7 +90,7 @@ flutter build appbundle --release
 flutter build ios --release
 ```
 
-## 📦 Tech Stack
+## Tech Stack
 
 - **Framework**: Flutter 3.9.2+
 - **State Management**: Provider
@@ -105,7 +105,7 @@ flutter build ios --release
 - **Fonts**: Google Fonts
 - **Number Formatting**: intl (Indonesian locale)
 
-## 📱 Screenshots
+## Screenshots
 
 <p align="center">
   <img src="screenshots/1_dashboard.png" width="200"/>
@@ -161,7 +161,7 @@ lib/
     └── transaction_list_item.dart
 ```
 
-## 🔧 Configuration
+## Configuration
 
 ### Google Sign-In
 
@@ -203,24 +203,24 @@ flutter analyze
 flutter format .
 ```
 
-## 📝 License
+## License
 
 Copyright © 2025 Temanku. All rights reserved.
 
-## 👤 Author
+## Author
 
-**Dio Pratama**
+**Dio Pratama - Teman Labs**
 
 - GitHub: [@diopratama99](https://github.com/diopratama99)
 
-## 🤝 Contributing
+## Contributing
 
 Contributions, issues and feature requests are welcome!
 
-## ⭐ Show your support
+## Show your support
 
 Give a ⭐️ if this project helped you!
 
 ---
 
-Made with ❤️ using Flutter
+
