@@ -205,7 +205,7 @@ flutter format .
 
 ## License
 
-Copyright © 2025 Temanku. All rights reserved.
+Copyright © 2025 Teman Labs. All rights reserved.
 
 ## Author
 
