@@ -177,7 +177,7 @@ Untuk menggunakan fitur Google Sign-In, Anda perlu:
 
 Aplikasi menggunakan SQLite untuk penyimpanan lokal. Database akan otomatis dibuat saat pertama kali aplikasi dijalankan.
 
-## 👨‍💻 Development
+## Development
 
 ### Run in Debug Mode
 
