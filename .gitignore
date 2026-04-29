@@ -1,3 +1,6 @@
+# Supabase credentials
+supabase.json
+
 # Miscellaneous
 *.class
 *.log
