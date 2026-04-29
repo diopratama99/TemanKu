@@ -1,11 +1,6 @@
 import 'dart:async';
-import 'dart:convert';
 
-import 'package:crypto/crypto.dart';
-import 'package:google_sign_in/google_sign_in.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:sqflite/sqflite.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../data/app_database.dart';
 
@@ -15,40 +10,37 @@ class AuthService {
   AuthService._internal();
 
   final _db = AppDatabase();
-  int? _currentUserId;
-  Map<String, dynamic>? _currentUser;
 
-  int? get currentUserId => _currentUserId;
+  SupabaseClient get _client => Supabase.instance.client;
+
+  String? get currentUserId => _client.auth.currentUser?.id;
+  Map<String, dynamic>? _currentUser;
   Map<String, dynamic>? get currentUser => _currentUser;
 
   Future<void> loadSession() async {
-    final sp = await SharedPreferences.getInstance();
-    final id = sp.getInt('currentUserId');
-    if (id != null) {
-      await _loadUserById(id);
+    final session = _client.auth.currentSession;
+    if (session != null) {
+      await _loadProfile();
     }
   }
 
-  Future<void> _loadUserById(int id) async {
-    final rows = await _db.db.query(
-      'users',
-      where: 'id=?',
-      whereArgs: [id],
-      limit: 1,
-    );
-    if (rows.isNotEmpty) {
-      _currentUserId = id;
-      _currentUser = rows.first;
+  Future<void> _loadProfile() async {
+    final profile = await _db.getProfile();
+    if (profile != null) {
+      _currentUser = profile;
     } else {
-      await logout();
+      // Fallback: build minimal user map from auth so UI doesn't crash
+      final authUser = _client.auth.currentUser;
+      if (authUser != null) {
+        _currentUser = {
+          'id': authUser.id,
+          'name': authUser.userMetadata?['name'] ??
+              authUser.email?.split('@').first ?? 'Pengguna',
+          'email': authUser.email,
+          'picture': null,
+        };
+      }
     }
-  }
-
-  String _hashPassword(String password) {
-    // Simple SHA-256; not equivalent to werkzeug but fine for local-only
-    final bytes = utf8.encode(password);
-    final digest = sha256.convert(bytes);
-    return digest.toString();
   }
 
   Future<String?> register({
@@ -56,29 +48,52 @@ class AuthService {
     required String email,
     required String password,
   }) async {
-    // Pastikan DB sudah terbuka
-    await _db.init();
-    final db = _db.db;
     try {
-      final id = await db.insert('users', {
-        'name': name,
-        'email': email.trim().toLowerCase(),
-        'password_hash': _hashPassword(password),
-      });
-      // Seed kategori default secara async agar UI tidak menunggu
-      unawaited(_db.seedDefaultCategories(id));
-      _currentUserId = id;
-      await _loadUserById(id);
-      final sp = await SharedPreferences.getInstance();
-      await sp.setInt('currentUserId', id);
+      final res = await _client.auth.signUp(
+        email: email.trim().toLowerCase(),
+        password: password,
+        data: {'name': name},
+      );
+
+      if (res.user == null) {
+        return 'Gagal daftar. Coba lagi.';
+      }
+
+      // User needs to verify OTP before session is active
+      // Profile + default categories are created by DB trigger after verification
       return null;
-    } on DatabaseException catch (e) {
-      if (e.isUniqueConstraintError()) {
+    } on AuthException catch (e) {
+      if (e.message.contains('already registered')) {
         return 'Email sudah terdaftar';
       }
-      return 'Gagal daftar: $e';
+      return 'Gagal daftar: ${e.message}';
     } catch (e) {
       return 'Gagal daftar: $e';
+    }
+  }
+
+  Future<String?> verifyOtp({
+    required String email,
+    required String token,
+  }) async {
+    try {
+      final res = await _client.auth.verifyOTP(
+        email: email.trim().toLowerCase(),
+        token: token.trim(),
+        type: OtpType.signup,
+      );
+
+      if (res.session == null) {
+        return 'Kode verifikasi salah atau sudah kedaluwarsa';
+      }
+
+      // Now session is active, load/update profile
+      await _loadProfile();
+      return null;
+    } on AuthException catch (e) {
+      return 'Verifikasi gagal: ${e.message}';
+    } catch (e) {
+      return 'Verifikasi gagal: $e';
     }
   }
 
@@ -86,116 +101,42 @@ class AuthService {
     required String email,
     required String password,
   }) async {
-    await _db.init();
-    final db = _db.db;
-    final rows = await db.query(
-      'users',
-      where: 'email=?',
-      whereArgs: [email.trim().toLowerCase()],
-      limit: 1,
-    );
-    if (rows.isEmpty) return 'Email atau password salah';
-    final row = rows.first;
-    final hashed = row['password_hash'] as String?;
-    if (hashed == _hashPassword(password)) {
-      _currentUserId = row['id'] as int;
-      _currentUser = row;
-      final sp = await SharedPreferences.getInstance();
-      await sp.setInt('currentUserId', _currentUserId!);
-      return null;
-    }
-    return 'Email atau password salah';
-  }
-
-  Future<String?> loginWithGoogle() async {
     try {
-      await _db.init();
-
-      // Initialize Google Sign-In with server client ID for ID token
-      // This requires both Android OAuth Client ID and Web OAuth Client ID in Google Cloud Console
-      final googleSignIn = GoogleSignIn(
-        scopes: ['email', 'profile'],
-        // Web Client ID - required to get ID token even with Android OAuth Client ID
-        serverClientId: dotenv.env['GOOGLE_WEB_CLIENT_ID'] ?? '',
+      final res = await _client.auth.signInWithPassword(
+        email: email.trim().toLowerCase(),
+        password: password,
       );
 
-      final account = await googleSignIn.signIn();
-      if (account == null) return 'Login Google dibatalkan';
-
-      final email = account.email.toLowerCase();
-      final name = account.displayName ?? email.split('@').first;
-      final picture = account.photoUrl;
-      final googleId = account.id; // use as google_sub equivalent
-
-      // Link or create
-      final existingBySub = await _db.db.query(
-        'users',
-        where: 'google_sub=?',
-        whereArgs: [googleId],
-        limit: 1,
-      );
-      Map<String, dynamic>? userRow;
-      if (existingBySub.isNotEmpty) {
-        userRow = existingBySub.first;
-      } else {
-        final existingByEmail = await _db.db.query(
-          'users',
-          where: 'email=?',
-          whereArgs: [email],
-          limit: 1,
-        );
-        if (existingByEmail.isNotEmpty) {
-          final id = existingByEmail.first['id'] as int;
-          await _db.db.update(
-            'users',
-            {'google_sub': googleId, 'picture': picture},
-            where: 'id=?',
-            whereArgs: [id],
-          );
-          userRow = (await _db.db.query(
-            'users',
-            where: 'id=?',
-            whereArgs: [id],
-            limit: 1,
-          )).first;
-        } else {
-          final id = await _db.db.insert('users', {
-            'name': name,
-            'email': email,
-            'password_hash': _hashPassword(DateTime.now().toIso8601String()),
-            'google_sub': googleId,
-            'picture': picture,
-          });
-          await _db.seedDefaultCategories(id);
-          userRow = (await _db.db.query(
-            'users',
-            where: 'id=?',
-            whereArgs: [id],
-            limit: 1,
-          )).first;
-        }
+      if (res.session == null) {
+        return 'Email atau password salah';
       }
 
-      _currentUserId = userRow!['id'] as int;
-      _currentUser = userRow;
-      final sp = await SharedPreferences.getInstance();
-      await sp.setInt('currentUserId', _currentUserId!);
+      await _loadProfile();
       return null;
+    } on AuthException catch (_) {
+      return 'Email atau password salah';
     } catch (e) {
-      return 'Gagal login Google: $e';
+      return 'Gagal login: $e';
     }
   }
 
   Future<void> logout() async {
-    _currentUserId = null;
+    await _client.auth.signOut();
     _currentUser = null;
-    final sp = await SharedPreferences.getInstance();
-    await sp.remove('currentUserId');
   }
 
   Future<void> refreshCurrentUser() async {
-    if (_currentUserId != null) {
-      await _loadUserById(_currentUserId!);
+    await _loadProfile();
+  }
+
+  Future<String?> updatePassword(String newPassword) async {
+    try {
+      await _client.auth.updateUser(UserAttributes(password: newPassword));
+      return null;
+    } on AuthException catch (e) {
+      return e.message;
+    } catch (e) {
+      return 'Gagal mengubah password: $e';
     }
   }
 }

@@ -1,12 +1,12 @@
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../data/app_database.dart';
-import '../state/auth_notifier.dart';
 import '../theme/app_theme.dart';
+import '../utils/theme_utils.dart';
+import '../widgets/editorial.dart';
 import '../widgets/state_widgets.dart';
 
 class SavingsPage extends StatefulWidget {
@@ -30,21 +30,8 @@ class _SavingsPageState extends State<SavingsPage> {
 
   Future<void> _load() async {
     setState(() => _loading = true);
-    final userId = context.read<AuthNotifier>().user!['id'] as int;
-    final db = context.read<AppDatabase>().db;
-
-    final rows = await db.rawQuery(
-      '''
-      SELECT g.id, g.name, g.target_amount, g.archived_at,
-             COALESCE(SUM(a.amount),0) AS allocated
-      FROM savings_goals g
-      LEFT JOIN savings_allocations a ON a.goal_id=g.id AND a.user_id=g.user_id
-      WHERE g.user_id=?
-      GROUP BY g.id
-      ORDER BY g.archived_at IS NOT NULL, g.created_at DESC
-    ''',
-      [userId],
-    );
+    final db = context.read<AppDatabase>();
+    final rows = await db.getSavingsGoals();
 
     double totalTarget = 0;
     double totalSaved = 0;
@@ -75,189 +62,184 @@ class _SavingsPageState extends State<SavingsPage> {
     final archivedGoals = _goals
         .where((e) => e['archived_at'] != null)
         .toList();
+    final paper = ThemeUtils.getBackgroundColor(context);
+    final secondary = ThemeUtils.getTextSecondary(context);
+    final ink = ThemeUtils.getTextPrimary(context);
 
     return Scaffold(
-      backgroundColor: AppTheme.backgroundColor,
-      appBar: AppBar(
-        backgroundColor: AppTheme.primaryColor,
-        foregroundColor: Colors.white,
-        elevation: 0,
-        centerTitle: true,
-        title: const Text(
-          'Tabungan',
-          style: TextStyle(fontWeight: FontWeight.w700),
-        ),
-      ),
-      body: _loading
-          ? const LoadingStateWidget(message: 'Memuat tabungan...')
-          : Column(
-              children: [
-                // Summary Card
-                if (activeGoals.isNotEmpty) _buildSummaryCard(),
-
-                // Goals List
-                Expanded(
-                  child: activeGoals.isEmpty
-                      ? EmptyStateWidget(
-                          icon: Icons.savings_outlined,
-                          title: 'Belum Ada Target Tabungan',
-                          description:
-                              'Buat target tabungan untuk mencapai tujuan finansial Anda',
-                          actionLabel: 'Buat Target',
-                          onAction: _showAddGoalDialog,
-                        )
-                      : ListView(
-                          padding: const EdgeInsets.only(
-                            left: AppTheme.space16,
-                            right: AppTheme.space16,
-                            bottom: 80,
-                          ),
-                          children: [
-                            // Active Goals
-                            for (final goal in activeGoals)
-                              _ModernGoalCard(
-                                goal: goal,
-                                onTap: () => _showGoalDetails(goal),
-                                onAddAllocation: () =>
-                                    _showAddAllocationDialog(goal),
-                                onEdit: () => _showEditGoalDialog(goal),
-                                onArchive: () => _archiveGoal(goal),
-                                onDelete: () => _deleteGoal(goal),
-                              ),
-
-                            // Archived Goals Section
-                            if (archivedGoals.isNotEmpty) ...[
-                              const SizedBox(height: 24),
-                              Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: AppTheme.space8,
-                                ),
-                                child: Text(
-                                  'Arsip',
-                                  style: Theme.of(context).textTheme.titleMedium
-                                      ?.copyWith(
-                                        fontWeight: FontWeight.w700,
-                                        color: AppTheme.textSecondary,
-                                      ),
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              for (final goal in archivedGoals)
-                                _ModernGoalCard(
+      backgroundColor: paper,
+      body: SafeArea(
+        child: _loading
+            ? const LoadingStateWidget(message: 'Memuat tabungan...')
+            : Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  EditorialHeader(
+                    eyebrow: 'TABUNGAN',
+                    title: 'Target.',
+                    metaEyebrow: 'AKTIF',
+                    meta: '${activeGoals.length} target',
+                    titleSize: 36,
+                  ),
+                  if (activeGoals.isNotEmpty) _buildEditorialSummary(),
+                  Expanded(
+                    child: activeGoals.isEmpty
+                        ? EmptyStateWidget(
+                            icon: Icons.savings_outlined,
+                            title: 'Belum ada target tabungan',
+                            description:
+                                'Buat target tabungan untuk mencapai tujuan finansial Anda.',
+                            actionLabel: 'Buat Target',
+                            onAction: _showAddGoalDialog,
+                          )
+                        : ListView(
+                            padding: EdgeInsets.zero,
+                            children: [
+                              for (final goal in activeGoals)
+                                _GoalRow(
                                   goal: goal,
-                                  isArchived: true,
+                                  money: _money,
                                   onTap: () => _showGoalDetails(goal),
-                                  onUnarchive: () => _unarchiveGoal(goal),
+                                  onAddAllocation: () =>
+                                      _showAddAllocationDialog(goal),
+                                  onEdit: () => _showEditGoalDialog(goal),
+                                  onArchive: () => _archiveGoal(goal),
                                   onDelete: () => _deleteGoal(goal),
                                 ),
+                              if (archivedGoals.isNotEmpty) ...[
+                                const SizedBox(height: AppTheme.space16),
+                                EditorialSectionHeader(
+                                  eyebrow: 'ARSIP',
+                                  title: '${archivedGoals.length} target lama',
+                                ),
+                                for (final goal in archivedGoals)
+                                  _GoalRow(
+                                    goal: goal,
+                                    isArchived: true,
+                                    money: _money,
+                                    onTap: () => _showGoalDetails(goal),
+                                    onUnarchive: () => _unarchiveGoal(goal),
+                                    onDelete: () => _deleteGoal(goal),
+                                  ),
+                              ],
+                              const SizedBox(height: AppTheme.space24),
                             ],
+                          ),
+                  ),
+                  const Hairline(),
+                  Material(
+                    color: paper,
+                    child: InkWell(
+                      onTap: _showAddGoalDialog,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppTheme.pageGutter,
+                          vertical: AppTheme.space20,
+                        ),
+                        child: Row(
+                          children: [
+                            AccentBar(
+                              width: 24,
+                              height: 2,
+                              color: ThemeUtils.getPrimaryColor(context),
+                            ),
+                            const SizedBox(width: AppTheme.space8),
+                            Eyebrow('TAMBAH', color: secondary),
+                            const Spacer(),
+                            Text(
+                              'Target tabungan baru',
+                              style: GoogleFonts.spaceGrotesk(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: ink,
+                                letterSpacing: -0.2,
+                              ),
+                            ),
+                            const SizedBox(width: AppTheme.space12),
+                            Icon(Icons.add, size: 20, color: ink),
                           ],
                         ),
-                ),
-              ],
-            ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _showAddGoalDialog,
-        icon: const Icon(Icons.add),
-        label: const Text('Buat Target'),
-        backgroundColor: AppTheme.primaryColor,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
       ),
     );
   }
 
-  Widget _buildSummaryCard() {
+  Widget _buildEditorialSummary() {
     final percentage = _totalTarget > 0
         ? (_totalSaved / _totalTarget * 100)
         : 0.0;
     final remaining = _totalTarget - _totalSaved;
+    final secondary = ThemeUtils.getTextSecondary(context);
+    final ink = ThemeUtils.getTextPrimary(context);
+    final accent = ThemeUtils.getPrimaryColor(context);
+    final isDark = ThemeUtils.isDarkMode(context);
 
-    return Container(
-      margin: const EdgeInsets.all(AppTheme.space16),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            AppTheme.primaryColor,
-            AppTheme.primaryColor.withOpacity(0.8),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
-        boxShadow: [
-          BoxShadow(
-            color: AppTheme.primaryColor.withOpacity(0.3),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppTheme.pageGutter,
+        AppTheme.space24,
+        AppTheme.pageGutter,
+        AppTheme.space24,
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-                ),
-                child: const Icon(Icons.savings, color: Colors.white, size: 28),
-              ),
-              const SizedBox(width: AppTheme.space16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Total Tabungan',
-                      style: TextStyle(
-                        color: Colors.white.withOpacity(0.9),
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      _money(_totalSaved),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 24,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
-            child: LinearProgressIndicator(
-              value: (percentage / 100).clamp(0.0, 1.0),
-              minHeight: 8,
-              backgroundColor: Colors.black.withOpacity(0.2),
-              valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
+          Eyebrow('TERKUMPUL', color: secondary),
+          const SizedBox(height: AppTheme.space8),
+          Text(
+            _money(_totalSaved),
+            style: GoogleFonts.spaceGrotesk(
+              fontSize: 40,
+              fontWeight: FontWeight.w600,
+              letterSpacing: -1.0,
+              height: 1.05,
+              color: ink,
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: AppTheme.space4),
+          Text(
+            'dari ${_money(_totalTarget)}',
+            style: GoogleFonts.inter(
+              fontSize: 13,
+              color: secondary,
+            ),
+          ),
+          const SizedBox(height: AppTheme.space20),
+          Container(
+            height: 2,
+            decoration: BoxDecoration(
+              color: isDark
+                  ? AppTheme.darkHairlineColor
+                  : AppTheme.hairlineColor,
+            ),
+            child: FractionallySizedBox(
+              alignment: Alignment.centerLeft,
+              widthFactor: (percentage / 100).clamp(0.0, 1.0),
+              child: Container(color: accent),
+            ),
+          ),
+          const SizedBox(height: AppTheme.space12),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
                 '${percentage.toStringAsFixed(1)}% dari target',
-                style: TextStyle(
-                  color: Colors.white.withOpacity(0.9),
+                style: GoogleFonts.inter(
                   fontSize: 12,
-                  fontWeight: FontWeight.w600,
+                  color: secondary,
+                  fontWeight: FontWeight.w500,
                 ),
               ),
               Text(
-                'Sisa ${_money(remaining)}',
-                style: const TextStyle(
-                  color: Colors.white,
+                remaining > 0 ? 'Sisa ${_money(remaining)}' : 'Tercapai',
+                style: GoogleFonts.inter(
                   fontSize: 12,
-                  fontWeight: FontWeight.w700,
+                  color: secondary,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ],
@@ -325,9 +307,7 @@ class _SavingsPageState extends State<SavingsPage> {
                 return;
               }
 
-              final userId = context.read<AuthNotifier>().user!['id'] as int;
-              await context.read<AppDatabase>().db.insert('savings_goals', {
-                'user_id': userId,
+              await context.read<AppDatabase>().insertSavingsGoal({
                 'name': nameCtrl.text.trim(),
                 'target_amount': target,
               });
@@ -350,13 +330,11 @@ class _SavingsPageState extends State<SavingsPage> {
   Future<void> _showGoalDetails(Map<String, dynamic> goal) async {
     // Show allocations history
     final goalId = goal['id'] as int;
-    final db = context.read<AppDatabase>().db;
-    final allocations = await db.query(
-      'savings_allocations',
-      where: 'goal_id=?',
-      whereArgs: [goalId],
-      orderBy: 'date DESC',
-    );
+    final allocations = await context.read<AppDatabase>().client
+        .from('savings_allocations')
+        .select()
+        .eq('goal_id', goalId)
+        .order('date', ascending: false);
 
     if (!mounted) return;
 
@@ -563,12 +541,7 @@ class _SavingsPageState extends State<SavingsPage> {
                 return;
               }
 
-              final userId = context.read<AuthNotifier>().user!['id'] as int;
-              await context
-                  .read<AppDatabase>()
-                  .db
-                  .insert('savings_allocations', {
-                    'user_id': userId,
+              await context.read<AppDatabase>().insertSavingsAllocation({
                     'goal_id': goal['id'],
                     'amount': amount,
                     'date': DateFormat('yyyy-MM-dd').format(DateTime.now()),
@@ -642,11 +615,9 @@ class _SavingsPageState extends State<SavingsPage> {
                 return;
               }
 
-              await context.read<AppDatabase>().db.update(
-                'savings_goals',
+              await context.read<AppDatabase>().updateSavingsGoal(
+                goal['id'] as int,
                 {'name': nameCtrl.text.trim(), 'target_amount': target},
-                where: 'id=?',
-                whereArgs: [goal['id']],
               );
 
               if (!mounted) return;
@@ -684,11 +655,9 @@ class _SavingsPageState extends State<SavingsPage> {
     );
 
     if (confirm == true) {
-      await context.read<AppDatabase>().db.update(
-        'savings_goals',
+      await context.read<AppDatabase>().updateSavingsGoal(
+        goal['id'] as int,
         {'archived_at': DateTime.now().toIso8601String()},
-        where: 'id=?',
-        whereArgs: [goal['id']],
       );
       if (!mounted) return;
       showSuccessSnackbar(context, 'Target berhasil diarsipkan');
@@ -697,11 +666,9 @@ class _SavingsPageState extends State<SavingsPage> {
   }
 
   Future<void> _unarchiveGoal(Map<String, dynamic> goal) async {
-    await context.read<AppDatabase>().db.update(
-      'savings_goals',
+    await context.read<AppDatabase>().updateSavingsGoal(
+      goal['id'] as int,
       {'archived_at': null},
-      where: 'id=?',
-      whereArgs: [goal['id']],
     );
     if (!mounted) return;
     showSuccessSnackbar(context, 'Target dikembalikan dari arsip');
@@ -731,15 +698,8 @@ class _SavingsPageState extends State<SavingsPage> {
     );
 
     if (confirm == true) {
-      await context.read<AppDatabase>().db.delete(
-        'savings_goals',
-        where: 'id=?',
-        whereArgs: [goal['id']],
-      );
-      await context.read<AppDatabase>().db.delete(
-        'savings_allocations',
-        where: 'goal_id=?',
-        whereArgs: [goal['id']],
+      await context.read<AppDatabase>().deleteSavingsGoal(
+        goal['id'] as int,
       );
       if (!mounted) return;
       showSuccessSnackbar(context, 'Target berhasil dihapus');
@@ -748,9 +708,10 @@ class _SavingsPageState extends State<SavingsPage> {
   }
 }
 
-class _ModernGoalCard extends StatelessWidget {
+class _GoalRow extends StatelessWidget {
   final Map<String, dynamic> goal;
   final bool isArchived;
+  final String Function(num) money;
   final VoidCallback onTap;
   final VoidCallback? onAddAllocation;
   final VoidCallback? onEdit;
@@ -758,9 +719,10 @@ class _ModernGoalCard extends StatelessWidget {
   final VoidCallback? onUnarchive;
   final VoidCallback onDelete;
 
-  const _ModernGoalCard({
+  const _GoalRow({
     required this.goal,
     this.isArchived = false,
+    required this.money,
     required this.onTap,
     this.onAddAllocation,
     this.onEdit,
@@ -776,323 +738,166 @@ class _ModernGoalCard extends StatelessWidget {
     final percentage = target > 0 ? (saved / target * 100) : 0.0;
     final remaining = target - saved;
     final isCompleted = percentage >= 100;
+    final ink = ThemeUtils.getTextPrimary(context);
+    final secondary = ThemeUtils.getTextSecondary(context);
+    final accent = ThemeUtils.getPrimaryColor(context);
+    final income = ThemeUtils.getIncomeColor(context);
+    final isDark = ThemeUtils.isDarkMode(context);
+    final hairline = isDark ? AppTheme.darkHairlineColor : AppTheme.hairlineColor;
+    final progressColor = isArchived
+        ? secondary
+        : (isCompleted ? income : accent);
+    final statusEyebrow = isArchived
+        ? 'ARSIP'
+        : (isCompleted ? 'TERCAPAI' : '${percentage.toStringAsFixed(0)}%');
+    final statusColor = isArchived
+        ? secondary
+        : (isCompleted ? income : secondary);
 
-    final color = isArchived
-        ? Colors.grey
-        : isCompleted
-        ? Colors.green
-        : AppTheme.primaryColor;
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: AppTheme.space16),
-      decoration: BoxDecoration(
-        color: AppTheme.surfaceColor,
-        borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
-        border: Border.all(color: color.withOpacity(0.3), width: 1.5),
-        boxShadow: [
-          BoxShadow(
-            color: color.withOpacity(0.1),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
-        child: Padding(
-          padding: const EdgeInsets.all(AppTheme.space16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Header
-              Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          goal['name'] as String,
-                          style: Theme.of(context).textTheme.titleMedium
-                              ?.copyWith(fontWeight: FontWeight.w700),
-                        ),
-                        const SizedBox(height: 4),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: color.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            isArchived
-                                ? 'Arsip'
-                                : isCompleted
-                                ? '✓ Tercapai'
-                                : 'Aktif',
-                            style: TextStyle(
-                              color: color,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  if (!isArchived) ...[
-                    IconButton(
-                      icon: const Icon(Icons.add_circle_outline),
-                      onPressed: onAddAllocation,
-                      color: AppTheme.primaryColor,
-                      tooltip: 'Tambah Alokasi',
-                    ),
-                    PopupMenuButton<String>(
-                      onSelected: (value) {
-                        if (value == 'edit') onEdit?.call();
-                        if (value == 'archive') onArchive?.call();
-                        if (value == 'delete') onDelete();
-                      },
-                      itemBuilder: (context) => [
-                        const PopupMenuItem(
-                          value: 'edit',
-                          child: Row(
-                            children: [
-                              Icon(Icons.edit_outlined, size: 20),
-                              SizedBox(width: 12),
-                              Text('Edit'),
-                            ],
-                          ),
-                        ),
-                        const PopupMenuItem(
-                          value: 'archive',
-                          child: Row(
-                            children: [
-                              Icon(Icons.archive_outlined, size: 20),
-                              SizedBox(width: 12),
-                              Text('Arsipkan'),
-                            ],
-                          ),
-                        ),
-                        const PopupMenuItem(
-                          value: 'delete',
-                          child: Row(
-                            children: [
-                              Icon(
-                                Icons.delete_outline,
-                                size: 20,
-                                color: Colors.red,
-                              ),
-                              SizedBox(width: 12),
-                              Text(
-                                'Hapus',
-                                style: TextStyle(color: Colors.red),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ] else ...[
-                    IconButton(
-                      icon: const Icon(Icons.unarchive_outlined),
-                      onPressed: onUnarchive,
-                      tooltip: 'Kembalikan',
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.delete_outline),
-                      onPressed: onDelete,
-                      color: Colors.red,
-                      tooltip: 'Hapus',
-                    ),
-                  ],
-                ],
+    return Column(
+      children: [
+        const Hairline(),
+        Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: onTap,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(
+                AppTheme.pageGutter,
+                AppTheme.space20,
+                AppTheme.pageGutter,
+                AppTheme.space20,
               ),
-
-              const SizedBox(height: AppTheme.space16),
-
-              // Large Circular Progress
-              Center(
-                child: SizedBox(
-                  width: 140,
-                  height: 140,
-                  child: Stack(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Center(
-                        child: SizedBox(
-                          width: 140,
-                          height: 140,
-                          child: CustomPaint(
-                            painter: _LargeCircularProgressPainter(
-                              progress: (percentage / 100).clamp(0.0, 1.0),
-                              color: color,
-                              backgroundColor: Colors.grey.shade200,
-                            ),
-                          ),
-                        ),
-                      ),
-                      Center(
+                      Expanded(
                         child: Column(
-                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
+                            Eyebrow(statusEyebrow, color: statusColor),
+                            const SizedBox(height: AppTheme.space4),
                             Text(
-                              '${percentage.toStringAsFixed(0)}%',
-                              style: TextStyle(
-                                fontSize: 32,
-                                fontWeight: FontWeight.w800,
-                                color: color,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              NumberFormat.currency(
-                                locale: 'id_ID',
-                                symbol: 'Rp ',
-                                decimalDigits: 0,
-                              ).format(saved),
-                              style: TextStyle(
-                                fontSize: 14,
+                              goal['name'] as String,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: GoogleFonts.spaceGrotesk(
+                                fontSize: 20,
                                 fontWeight: FontWeight.w600,
-                                color: AppTheme.textSecondary,
+                                letterSpacing: -0.4,
+                                color: isArchived ? secondary : ink,
+                                height: 1.15,
                               ),
                             ),
                           ],
                         ),
                       ),
-                    ],
-                  ),
-                ),
-              ),
-
-              const SizedBox(height: AppTheme.space16),
-
-              // Progress Bar
-              ClipRRect(
-                borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
-                child: LinearProgressIndicator(
-                  value: (percentage / 100).clamp(0.0, 1.0),
-                  minHeight: 6,
-                  backgroundColor: Colors.grey.shade200,
-                  valueColor: AlwaysStoppedAnimation<Color>(color),
-                ),
-              ),
-
-              const SizedBox(height: AppTheme.space12),
-
-              // Stats
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Target',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: AppTheme.textSecondary,
+                      const SizedBox(width: AppTheme.space12),
+                      if (!isArchived)
+                        IconButton(
+                          onPressed: onAddAllocation,
+                          icon: Icon(Icons.add_circle_outline,
+                              size: 22, color: accent),
+                          tooltip: 'Tambah alokasi',
+                          visualDensity: VisualDensity.compact,
                         ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        NumberFormat.currency(
-                          locale: 'id_ID',
-                          symbol: 'Rp ',
-                          decimalDigits: 0,
-                        ).format(target),
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 14,
-                        ),
+                      PopupMenuButton<String>(
+                        icon: Icon(Icons.more_horiz, color: secondary),
+                        offset: const Offset(0, 36),
+                        onSelected: (value) {
+                          if (value == 'edit') onEdit?.call();
+                          if (value == 'archive') onArchive?.call();
+                          if (value == 'unarchive') onUnarchive?.call();
+                          if (value == 'delete') onDelete();
+                        },
+                        itemBuilder: (context) => [
+                          if (!isArchived)
+                            const PopupMenuItem(
+                              value: 'edit',
+                              child: Text('Edit'),
+                            ),
+                          if (!isArchived)
+                            const PopupMenuItem(
+                              value: 'archive',
+                              child: Text('Arsipkan'),
+                            ),
+                          if (isArchived)
+                            const PopupMenuItem(
+                              value: 'unarchive',
+                              child: Text('Kembalikan'),
+                            ),
+                          const PopupMenuItem(
+                            value: 'delete',
+                            child: Text('Hapus'),
+                          ),
+                        ],
                       ),
                     ],
                   ),
-                  Column(
+                  const SizedBox(height: AppTheme.space12),
+                  // Saved / target row
+                  Row(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
-                      Text(
-                        'Sisa',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: AppTheme.textSecondary,
-                        ),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Eyebrow('TERKUMPUL', color: secondary, size: 10),
+                          const SizedBox(height: AppTheme.space4),
+                          Text(
+                            money(saved),
+                            style: GoogleFonts.spaceGrotesk(
+                              fontSize: 22,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: -0.4,
+                              color: isArchived ? secondary : ink,
+                            ),
+                          ),
+                        ],
                       ),
-                      const SizedBox(height: 2),
-                      Text(
-                        NumberFormat.currency(
-                          locale: 'id_ID',
-                          symbol: 'Rp ',
-                          decimalDigits: 0,
-                        ).format(remaining.clamp(0, double.infinity)),
-                        style: TextStyle(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 14,
-                          color: remaining > 0 ? Colors.orange : Colors.green,
+                      const SizedBox(width: AppTheme.space20),
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 4),
+                        child: Text(
+                          '/ ${money(target)}',
+                          style: GoogleFonts.inter(
+                            fontSize: 13,
+                            color: secondary,
+                          ),
                         ),
                       ),
                     ],
                   ),
+                  const SizedBox(height: AppTheme.space16),
+                  Container(
+                    height: 2,
+                    decoration: BoxDecoration(color: hairline),
+                    child: FractionallySizedBox(
+                      alignment: Alignment.centerLeft,
+                      widthFactor: (percentage / 100).clamp(0.0, 1.0),
+                      child: Container(color: progressColor),
+                    ),
+                  ),
+                  if (!isCompleted && !isArchived) ...[
+                    const SizedBox(height: AppTheme.space8),
+                    Text(
+                      'Sisa ${money(remaining.clamp(0, double.infinity))}',
+                      style: GoogleFonts.inter(
+                        fontSize: 12,
+                        color: secondary,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
                 ],
               ),
-            ],
+            ),
           ),
         ),
-      ),
+      ],
     );
-  }
-}
-
-// Large Circular Progress Painter for Goal Cards
-class _LargeCircularProgressPainter extends CustomPainter {
-  final double progress;
-  final Color color;
-  final Color backgroundColor;
-
-  _LargeCircularProgressPainter({
-    required this.progress,
-    required this.color,
-    required this.backgroundColor,
-  });
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final center = Offset(size.width / 2, size.height / 2);
-    final radius = size.width / 2;
-    const strokeWidth = 12.0;
-
-    // Background circle
-    final bgPaint = Paint()
-      ..color = backgroundColor
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = strokeWidth
-      ..strokeCap = StrokeCap.round;
-
-    canvas.drawCircle(center, radius - strokeWidth / 2, bgPaint);
-
-    // Progress arc
-    final progressPaint = Paint()
-      ..color = color
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = strokeWidth
-      ..strokeCap = StrokeCap.round;
-
-    const startAngle = -math.pi / 2;
-    final sweepAngle = 2 * math.pi * progress;
-
-    canvas.drawArc(
-      Rect.fromCircle(center: center, radius: radius - strokeWidth / 2),
-      startAngle,
-      sweepAngle,
-      false,
-      progressPaint,
-    );
-  }
-
-  @override
-  bool shouldRepaint(_LargeCircularProgressPainter oldDelegate) {
-    return oldDelegate.progress != progress ||
-        oldDelegate.color != color ||
-        oldDelegate.backgroundColor != backgroundColor;
   }
 }

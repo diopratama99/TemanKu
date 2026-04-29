@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../data/app_database.dart';
-import '../state/auth_notifier.dart';
 import '../theme/app_theme.dart';
+import '../utils/theme_utils.dart';
+import '../widgets/editorial.dart';
 import '../widgets/state_widgets.dart';
 import 'add_transaction_page.dart';
 
@@ -35,16 +37,9 @@ class _TransactionsPageState extends State<TransactionsPage> {
   Future<void> _load() async {
     setState(() => _loading = true);
     final db = context.read<AppDatabase>();
-    final userId = context.read<AuthNotifier>().user!['id'] as int;
-    final rows = await db.db.rawQuery(
-      '''
-      SELECT t.*, COALESCE(c.name,'-') AS category, c.emoji AS category_emoji
-      FROM transactions t
-      LEFT JOIN categories c ON c.id=t.category_id
-      WHERE t.user_id=? AND t.date BETWEEN ? AND ?
-      ORDER BY t.date DESC, t.id DESC
-    ''',
-      [userId, _iso(_start), _iso(_end)],
+    final rows = await db.getTransactions(
+      startDate: _iso(_start),
+      endDate: _iso(_end),
     );
     setState(() {
       _rows = rows;
@@ -56,119 +51,97 @@ class _TransactionsPageState extends State<TransactionsPage> {
 
   @override
   Widget build(BuildContext context) {
+    final paper = ThemeUtils.getBackgroundColor(context);
+    final ink = ThemeUtils.getTextPrimary(context);
+    final secondary = ThemeUtils.getTextSecondary(context);
+    final periodLabel =
+        '${DateFormat('dd MMM', 'id_ID').format(_start)} – '
+        '${DateFormat('dd MMM yyyy', 'id_ID').format(_end)}';
+
     return Scaffold(
-      appBar: AppBar(
-        backgroundColor: AppTheme.primaryColor,
-        elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.white),
-        title: const Text(
-          'Transaksi',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
-        ),
-        centerTitle: true,
-      ),
-      body: _loading
-          ? const LoadingStateWidget(message: 'Memuat transaksi...')
-          : Column(
-              children: [
-                // Modern Date Filter Card
-                Container(
-                  margin: const EdgeInsets.all(AppTheme.space16),
-                  padding: const EdgeInsets.all(AppTheme.space16),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        AppTheme.primaryColor.withOpacity(0.1),
-                        AppTheme.primaryColor.withOpacity(0.05),
-                      ],
-                    ),
-                    borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
-                    border: Border.all(
-                      color: AppTheme.primaryColor.withOpacity(0.2),
-                      width: 1,
-                    ),
+      backgroundColor: paper,
+      body: SafeArea(
+        bottom: false,
+        child: _loading
+            ? const LoadingStateWidget(message: 'Mengumpulkan catatan...')
+            : Column(
+                children: [
+                  EditorialHeader(
+                    eyebrow: 'ARSIP',
+                    title: 'Catatan',
+                    titleSize: 36,
+                    metaEyebrow: 'PERIODE',
+                    meta: periodLabel,
                   ),
-                  child: Row(
-                    children: [
-                      const Icon(
-                        Icons.date_range,
-                        color: AppTheme.primaryColor,
-                        size: 24,
-                      ),
-                      const SizedBox(width: AppTheme.space12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Periode',
-                              style: Theme.of(context).textTheme.bodySmall
-                                  ?.copyWith(
-                                    color: AppTheme.textSecondary,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              '${DateFormat('dd MMM', 'id_ID').format(_start)} - ${DateFormat('dd MMM yyyy', 'id_ID').format(_end)}',
-                              style: Theme.of(context).textTheme.bodyLarge
-                                  ?.copyWith(
-                                    fontWeight: FontWeight.w600,
-                                    color: AppTheme.primaryColor,
-                                  ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      FilledButton.icon(
-                        onPressed: () => _showDateRangePicker(),
-                        icon: const Icon(Icons.edit_calendar, size: 18),
-                        label: const Text('Ubah'),
-                        style: FilledButton.styleFrom(
-                          backgroundColor: AppTheme.primaryColor,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: AppTheme.space16,
-                            vertical: AppTheme.space8,
+                  // Period bar — hairline segment with INK button
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppTheme.pageGutter,
+                      vertical: AppTheme.space12,
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Eyebrow('JUMLAH ENTRI', color: secondary, size: 10),
+                              const SizedBox(height: AppTheme.space4),
+                              Text(
+                                '${_rows.length} catatan',
+                                style: GoogleFonts.spaceGrotesk(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                  color: ink,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                      ),
-                    ],
-                  ),
-                ),
-
-                // Transactions List
-                Expanded(
-                  child: _rows.isEmpty
-                      ? EmptyStateWidget(
-                          icon: Icons.receipt_long_outlined,
-                          title: 'Belum Ada Transaksi',
-                          description:
-                              'Mulai tambahkan transaksi untuk periode ini',
-                          actionLabel: 'Tambah Transaksi',
-                          onAction: () => _navigateToAdd(),
-                        )
-                      : ListView.builder(
-                          padding: const EdgeInsets.only(bottom: 80),
-                          itemCount: _rows.length,
-                          itemBuilder: (context, i) {
-                            final r = _rows[i];
-                            return _ModernTransactionCard(
-                              transaction: r,
-                              onTap: () => _navigateToEdit(r),
-                              onDelete: () => _deleteTransaction(r),
-                            );
-                          },
+                        OutlinedButton.icon(
+                          onPressed: _showDateRangePicker,
+                          icon: const Icon(Icons.tune, size: 16),
+                          label: const Text('UBAH PERIODE'),
                         ),
-                ),
-              ],
-            ),
+                      ],
+                    ),
+                  ),
+                  const Hairline(),
+                  Expanded(
+                    child: _rows.isEmpty
+                        ? EmptyStateWidget(
+                            eyebrow: 'KOSONG',
+                            icon: Icons.article_outlined,
+                            title: 'Belum ada catatan',
+                            description:
+                                'Tidak ada transaksi pada rentang tanggal yang dipilih.',
+                            actionLabel: 'Tulis transaksi',
+                            onAction: () => _navigateToAdd(),
+                          )
+                        : ListView.builder(
+                            padding: const EdgeInsets.only(
+                              bottom: AppTheme.space80,
+                            ),
+                            itemCount: _rows.length,
+                            itemBuilder: (context, i) {
+                              final r = _rows[i];
+                              return _ModernTransactionCard(
+                                transaction: r,
+                                onTap: () => _navigateToEdit(r),
+                                onDelete: () => _deleteTransaction(r),
+                              );
+                            },
+                          ),
+                  ),
+                ],
+              ),
+      ),
       floatingActionButton: widget.hideAddButton
           ? null
           : FloatingActionButton.extended(
               onPressed: _navigateToAdd,
-              icon: const Icon(Icons.add),
-              label: const Text('Tambah'),
-              backgroundColor: AppTheme.primaryColor,
+              icon: const Icon(Icons.add, size: 18),
+              label: const Text('TULIS'),
             ),
     );
   }
@@ -230,10 +203,8 @@ class _TransactionsPageState extends State<TransactionsPage> {
     );
 
     if (confirm == true) {
-      await context.read<AppDatabase>().db.delete(
-        'transactions',
-        where: 'id=?',
-        whereArgs: [transaction['id']],
+      await context.read<AppDatabase>().deleteTransaction(
+        transaction['id'] as int,
       );
       if (!mounted) return;
       showSuccessSnackbar(context, 'Transaksi berhasil dihapus');
@@ -255,241 +226,143 @@ class _ModernTransactionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final type = transaction['type'] as String;
+    final isIncome = transaction['type'] == 'income';
     final amount = transaction['amount'] as num;
-    final category = transaction['category'] as String;
-    final emoji = transaction['category_emoji'] as String?;
-    final payee = transaction['source_or_payee'] as String?;
+    final category = transaction['category'] as String? ?? 'Tanpa kategori';
+    final emoji = transaction['category_emoji'] as String? ?? '•';
+    final payee = (transaction['source_or_payee'] as String?) ?? '';
+    final account = (transaction['account'] as String?) ?? '-';
     final date = DateFormat('yyyy-MM-dd').parse(transaction['date'] as String);
-    final account = transaction['account'] as String?;
+    final formattedDate = DateFormat('dd MMM yyyy', 'id_ID').format(date);
+    final money = NumberFormat.currency(
+      locale: 'id_ID',
+      symbol: 'Rp ',
+      decimalDigits: 0,
+    );
 
-    final isIncome = type == 'income';
-    final color = isIncome ? Colors.green : Colors.red;
+    final ink = ThemeUtils.getTextPrimary(context);
+    final secondary = ThemeUtils.getTextSecondary(context);
+    final amountColor = isIncome
+        ? ThemeUtils.getIncomeColor(context)
+        : ThemeUtils.getExpenseColor(context);
+    final hairline = ThemeUtils.isDarkMode(context)
+        ? AppTheme.darkHairlineColor
+        : AppTheme.hairlineColor;
 
     return Dismissible(
       key: Key('transaction_${transaction['id']}'),
       direction: DismissDirection.endToStart,
       background: Container(
+        color: ThemeUtils.getExpenseColor(context).withOpacity(0.08),
         alignment: Alignment.centerRight,
-        padding: const EdgeInsets.only(right: 20),
-        margin: const EdgeInsets.symmetric(
-          horizontal: AppTheme.space16,
-          vertical: AppTheme.space8,
-        ),
-        decoration: BoxDecoration(
-          color: Colors.red,
-          borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
-        ),
-        child: const Icon(Icons.delete_outline, color: Colors.white, size: 28),
-      ),
-      confirmDismiss: (direction) async {
-        onDelete();
-        return false; // We handle deletion manually
-      },
-      child: Container(
-        margin: const EdgeInsets.symmetric(
-          horizontal: AppTheme.space16,
-          vertical: AppTheme.space8,
-        ),
-        decoration: BoxDecoration(
-          color: Theme.of(context).cardColor,
-          borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
-          border: Border.all(color: Theme.of(context).dividerColor, width: 1),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 4,
-              offset: const Offset(0, 2),
+        padding: const EdgeInsets.only(right: AppTheme.pageGutter),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.delete_outline,
+              color: ThemeUtils.getExpenseColor(context),
+              size: 20,
+            ),
+            const SizedBox(width: AppTheme.space8),
+            Text(
+              'HAPUS',
+              style: GoogleFonts.inter(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 1.6,
+                color: ThemeUtils.getExpenseColor(context),
+              ),
             ),
           ],
         ),
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
-          child: Padding(
-            padding: const EdgeInsets.all(AppTheme.space16),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Category Icon
-                Container(
-                  width: 48,
-                  height: 48,
-                  decoration: BoxDecoration(
-                    color: color.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+      ),
+      confirmDismiss: (_) async {
+        onDelete();
+        return false;
+      },
+      child: InkWell(
+        onTap: onTap,
+        child: Container(
+          decoration: BoxDecoration(
+            border: Border(
+              bottom: BorderSide(color: hairline, width: AppTheme.hairlineWidth),
+            ),
+          ),
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppTheme.pageGutter,
+            vertical: AppTheme.space20,
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(
+                width: 32,
+                child: Text(emoji, style: const TextStyle(fontSize: 22)),
+              ),
+              const SizedBox(width: AppTheme.space16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Eyebrow(
+                      isIncome
+                          ? 'PEMASUKAN · $account'
+                          : 'PENGELUARAN · $account',
+                      color: amountColor,
+                      size: 10,
+                    ),
+                    const SizedBox(height: AppTheme.space4),
+                    Text(
+                      category,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.spaceGrotesk(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: -0.2,
+                        height: 1.2,
+                        color: ink,
+                      ),
+                    ),
+                    const SizedBox(height: AppTheme.space4),
+                    Text(
+                      payee.isEmpty
+                          ? formattedDate
+                          : '$formattedDate · $payee',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.inter(
+                        fontSize: 12,
+                        height: 1.5,
+                        color: secondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: AppTheme.space12),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Eyebrow(
+                    isIncome ? 'MASUK' : 'KELUAR',
+                    color: secondary,
+                    size: 10,
                   ),
-                  child: Center(
-                    child: Text(
-                      emoji ?? (isIncome ? '💰' : '🛒'),
-                      style: const TextStyle(fontSize: 24),
+                  const SizedBox(height: AppTheme.space4),
+                  Text(
+                    '${isIncome ? '+' : '−'} ${money.format(amount)}',
+                    style: GoogleFonts.spaceGrotesk(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: -0.2,
+                      color: amountColor,
                     ),
                   ),
-                ),
-
-                const SizedBox(width: AppTheme.space16),
-
-                // Transaction Details
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              category,
-                              style: Theme.of(context).textTheme.titleMedium
-                                  ?.copyWith(fontWeight: FontWeight.w600),
-                            ),
-                          ),
-                          Text(
-                            '${isIncome ? '+' : '-'} ${NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0).format(amount)}',
-                            style: Theme.of(context).textTheme.titleMedium
-                                ?.copyWith(
-                                  color: color,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 4),
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.calendar_today,
-                            size: 12,
-                            color: AppTheme.textSecondary,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            DateFormat('dd MMM yyyy', 'id_ID').format(date),
-                            style: Theme.of(context).textTheme.bodySmall
-                                ?.copyWith(color: AppTheme.textSecondary),
-                          ),
-                          if (account != null) ...[
-                            const SizedBox(width: AppTheme.space8),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 6,
-                                vertical: 2,
-                              ),
-                              decoration: BoxDecoration(
-                                color: AppTheme.primaryColor.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: Text(
-                                account,
-                                style: Theme.of(context).textTheme.bodySmall
-                                    ?.copyWith(
-                                      color: AppTheme.primaryColor,
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                      if (payee != null && payee.isNotEmpty) ...[
-                        const SizedBox(height: 4),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: [
-                            Expanded(
-                              child: Text(
-                                payee,
-                                style: Theme.of(context).textTheme.bodySmall
-                                    ?.copyWith(
-                                      color: AppTheme.textSecondary,
-                                      fontStyle: FontStyle.italic,
-                                    ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            InkWell(
-                              onTap: onDelete,
-                              borderRadius: BorderRadius.circular(
-                                AppTheme.radiusSmall,
-                              ),
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: AppTheme.space8,
-                                  vertical: AppTheme.space4,
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    const Icon(
-                                      Icons.delete_outline,
-                                      color: Colors.red,
-                                      size: 16,
-                                    ),
-                                    const SizedBox(width: AppTheme.space4),
-                                    Text(
-                                      'Hapus',
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .bodySmall
-                                          ?.copyWith(
-                                            color: Colors.red,
-                                            fontWeight: FontWeight.w600,
-                                            fontSize: 11,
-                                          ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ] else ...[
-                        // Jika tidak ada payee, tampilkan hapus di bawah
-                        const SizedBox(height: 4),
-                        Align(
-                          alignment: Alignment.centerRight,
-                          child: InkWell(
-                            onTap: onDelete,
-                            borderRadius: BorderRadius.circular(
-                              AppTheme.radiusSmall,
-                            ),
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: AppTheme.space8,
-                                vertical: AppTheme.space4,
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  const Icon(
-                                    Icons.delete_outline,
-                                    color: Colors.red,
-                                    size: 16,
-                                  ),
-                                  const SizedBox(width: AppTheme.space4),
-                                  Text(
-                                    'Hapus',
-                                    style: Theme.of(context).textTheme.bodySmall
-                                        ?.copyWith(
-                                          color: Colors.red,
-                                          fontWeight: FontWeight.w600,
-                                          fontSize: 11,
-                                        ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-              ],
-            ),
+                ],
+              ),
+            ],
           ),
         ),
       ),
@@ -547,13 +420,7 @@ class _EditTransactionPageModernState extends State<EditTransactionPageModern> {
 
   Future<void> _loadCats() async {
     try {
-      final userId = context.read<AuthNotifier>().user!['id'] as int;
-      final rows = await context.read<AppDatabase>().db.query(
-        'categories',
-        where: 'user_id=? AND type=?',
-        whereArgs: [userId, _type],
-        orderBy: 'name',
-      );
+      final rows = await context.read<AppDatabase>().getCategories(_type);
       if (!mounted) return;
       setState(() {
         _cats = rows;
@@ -573,7 +440,6 @@ class _EditTransactionPageModernState extends State<EditTransactionPageModern> {
   }
 
   Future<void> _save() async {
-    final userId = context.read<AuthNotifier>().user!['id'] as int;
     final amount = num.tryParse(
       _amount.text.replaceAll('.', '').replaceAll(',', '.'),
     )?.toDouble();
@@ -589,31 +455,21 @@ class _EditTransactionPageModernState extends State<EditTransactionPageModern> {
     }
 
     try {
+      final data = {
+        'date': DateFormat('yyyy-MM-dd').format(_date),
+        'type': _type,
+        'category_id': _categoryId,
+        'amount': amount,
+        'source_or_payee': _payee.text,
+        'account': _account,
+        'notes': _notes.text,
+      };
       if (widget.existing == null) {
-        await context.read<AppDatabase>().db.insert('transactions', {
-          'user_id': userId,
-          'date': DateFormat('yyyy-MM-dd').format(_date),
-          'type': _type,
-          'category_id': _categoryId,
-          'amount': amount,
-          'source_or_payee': _payee.text,
-          'account': _account,
-          'notes': _notes.text,
-        });
+        await context.read<AppDatabase>().insertTransaction(data);
       } else {
-        await context.read<AppDatabase>().db.update(
-          'transactions',
-          {
-            'date': DateFormat('yyyy-MM-dd').format(_date),
-            'type': _type,
-            'category_id': _categoryId,
-            'amount': amount,
-            'source_or_payee': _payee.text,
-            'account': _account,
-            'notes': _notes.text,
-          },
-          where: 'id=?',
-          whereArgs: [widget.existing!['id']],
+        await context.read<AppDatabase>().updateTransaction(
+          widget.existing!['id'] as int,
+          data,
         );
       }
 
@@ -636,18 +492,9 @@ class _EditTransactionPageModernState extends State<EditTransactionPageModern> {
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF157347),
-        elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.white),
         title: Text(
-          widget.existing == null ? 'Transaksi Baru' : 'Edit Transaksi',
-          style: const TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.w700,
-            fontSize: 20,
-          ),
+          widget.existing == null ? 'Transaksi baru' : 'Sunting transaksi',
         ),
-        centerTitle: true,
       ),
       body: SafeArea(
         child: Column(

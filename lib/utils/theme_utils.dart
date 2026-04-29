@@ -9,6 +9,13 @@ class ThemeUtils {
     return isDark ? AppTheme.darkPrimaryColor : AppTheme.primaryColor;
   }
 
+  /// Get brand green accent based on theme mode — for thin
+  /// masthead rules and selective financial section accents.
+  static Color getAccentGreen(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return isDark ? AppTheme.darkAccentGreen : AppTheme.accentGreen;
+  }
+
   /// Get income color based on theme mode
   static Color getIncomeColor(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;

@@ -8,15 +8,10 @@ class AuthNotifier extends ChangeNotifier {
 
   bool get isLoggedIn => _auth.currentUserId != null;
   Map<String, dynamic>? get user => _auth.currentUser;
+  String? get userId => _auth.currentUserId;
 
   Future<String?> login(String email, String password) async {
     final res = await _auth.login(email: email, password: password);
-    notifyListeners();
-    return res;
-  }
-
-  Future<String?> loginGoogle() async {
-    final res = await _auth.loginWithGoogle();
     notifyListeners();
     return res;
   }
@@ -31,6 +26,12 @@ class AuthNotifier extends ChangeNotifier {
     return res;
   }
 
+  Future<String?> verifyOtp(String email, String token) async {
+    final res = await _auth.verifyOtp(email: email, token: token);
+    notifyListeners();
+    return res;
+  }
+
   Future<void> logout() async {
     await _auth.logout();
     notifyListeners();
@@ -39,5 +40,9 @@ class AuthNotifier extends ChangeNotifier {
   Future<void> refreshUser() async {
     await _auth.refreshCurrentUser();
     notifyListeners();
+  }
+
+  Future<String?> updatePassword(String newPassword) async {
+    return await _auth.updatePassword(newPassword);
   }
 }

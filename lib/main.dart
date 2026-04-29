@@ -25,6 +25,7 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await dotenv.load(fileName: ".env");
   await initializeDateFormatting('id_ID', null);
+  await AppDatabase().init();
   runApp(const MyApp());
 }
 
@@ -43,12 +44,7 @@ class _MyAppState extends State<MyApp> {
   @override
   void initState() {
     super.initState();
-    _init = _bootstrap();
-  }
-
-  Future<void> _bootstrap() async {
-    await _db.init();
-    await _auth.loadSession();
+    _init = _auth.loadSession();
   }
 
   @override

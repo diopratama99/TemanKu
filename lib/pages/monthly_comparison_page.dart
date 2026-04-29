@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../theme/app_theme.dart';
+import '../utils/theme_utils.dart';
 import '../data/app_database.dart';
-import '../state/auth_notifier.dart';
+import '../widgets/editorial.dart';
 import '../widgets/state_widgets.dart';
 
 /// Monthly Comparison Page - Uji Hipotesis Dua Populasi
@@ -35,14 +37,13 @@ class _MonthlyComparisonPageState extends State<MonthlyComparisonPage> {
   Future<void> _loadData() async {
     setState(() => _loading = true);
     try {
-      final userId = context.read<AuthNotifier>().user!['id'] as int;
-      final db = context.read<AppDatabase>().db;
+      final db = context.read<AppDatabase>();
 
       // Load current month data
-      _currentData = await _loadMonthData(db, userId, _currentMonth);
+      _currentData = await _loadMonthData(db, _currentMonth);
 
       // Load previous month data
-      _previousData = await _loadMonthData(db, userId, _previousMonth);
+      _previousData = await _loadMonthData(db, _previousMonth);
 
       // Perform statistical comparison
       _comparisonResult = _performHypothesisTest();
@@ -57,59 +58,44 @@ class _MonthlyComparisonPageState extends State<MonthlyComparisonPage> {
   }
 
   Future<Map<String, dynamic>> _loadMonthData(
-    dynamic db,
-    int userId,
+    AppDatabase db,
     String month,
   ) async {
-    // Load total expenses for the month
-    final totalResult = await db.rawQuery(
-      '''
-      SELECT COALESCE(SUM(amount), 0) as total
-      FROM transactions
-      WHERE user_id = ? AND type = 'expense' 
-      AND strftime('%Y-%m', date) = ?
-    ''',
-      [userId, month],
+    final parts = month.split('-');
+    final lastDay = DateTime(int.parse(parts[0]), int.parse(parts[1]) + 1, 0).day;
+    final rows = await db.getTransactions(
+      startDate: '$month-01',
+      endDate: '$month-${lastDay.toString().padLeft(2, '0')}',
+      type: 'expense',
     );
 
-    final total = (totalResult.first['total'] as num).toDouble();
+    double total = 0;
+    final catAgg = <String, Map<String, dynamic>>{};
 
-    // Load expenses by category
-    final categoryResult = await db.rawQuery(
-      '''
-      SELECT 
-        c.name as category,
-        c.emoji as emoji,
-        COALESCE(SUM(t.amount), 0) as amount,
-        COUNT(t.id) as count
-      FROM categories c
-      LEFT JOIN transactions t ON c.id = t.category_id 
-        AND t.user_id = ? 
-        AND t.type = 'expense'
-        AND strftime('%Y-%m', t.date) = ?
-      WHERE c.user_id = ? AND c.type = 'expense'
-      GROUP BY c.id, c.name, c.emoji
-      HAVING amount > 0
-      ORDER BY amount DESC
-    ''',
-      [userId, month, userId],
-    );
+    for (final row in rows) {
+      final amount = (row['amount'] as num).toDouble();
+      total += amount;
+      final category = (row['category'] as String?) ?? 'Tanpa Kategori';
+      final emoji = (row['category_emoji'] as String?) ?? '📦';
+      final key = '$emoji $category';
+      if (catAgg.containsKey(key)) {
+        catAgg[key]!['amount'] = (catAgg[key]!['amount'] as double) + amount;
+        catAgg[key]!['count'] = (catAgg[key]!['count'] as int) + 1;
+      } else {
+        catAgg[key] = {
+          'category': category,
+          'emoji': emoji,
+          'amount': amount,
+          'count': 1,
+        };
+      }
+    }
 
-    // Convert to simpler List<Map<String, dynamic>>
-    // Filter out any null values to prevent errors
-    final categories = categoryResult
-        .map((row) {
-          return {
-            'category': (row['category'] ?? 'Tanpa Kategori') as String,
-            'emoji': (row['emoji'] ?? '📦') as String,
-            'amount': (row['amount'] as num?)?.toDouble() ?? 0.0,
-            'count': (row['count'] as int?) ?? 0,
-          };
-        })
+    final categories = catAgg.values
         .where((cat) => (cat['amount'] as double) > 0)
-        .toList();
+        .toList()
+      ..sort((a, b) => (b['amount'] as double).compareTo(a['amount'] as double));
 
-    // Calculate total count safely
     int totalCount = 0;
     for (final cat in categories) {
       totalCount += (cat['count'] as int? ?? 0);
@@ -304,256 +290,207 @@ class _MonthlyComparisonPageState extends State<MonthlyComparisonPage> {
 
   @override
   Widget build(BuildContext context) {
+    final paper = ThemeUtils.getBackgroundColor(context);
+    final secondary = ThemeUtils.getTextSecondary(context);
+
     return Scaffold(
-      backgroundColor: AppTheme.backgroundColor,
-      appBar: AppBar(
-        title: const Text('Perbandingan Bulanan'),
-        backgroundColor: AppTheme.primaryColor,
-        foregroundColor: Colors.white,
-        elevation: 0,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.info_outline),
-            onPressed: () => _showInfoDialog(),
-          ),
-        ],
-      ),
-      body: _loading
-          ? const LoadingStateWidget(message: 'Menganalisis data...')
-          : _comparisonResult == null || _comparisonResult!.isEmpty
-          ? EmptyStateWidget(
-              icon: Icons.analytics_outlined,
-              title: 'Tidak Ada Data',
-              description: 'Belum ada data pengeluaran untuk dibandingkan',
-            )
-          : RefreshIndicator(
-              onRefresh: _loadData,
-              child: SingleChildScrollView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.all(AppTheme.space16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildMonthSelector(),
-                    const SizedBox(height: AppTheme.space24),
-                    _buildOverallComparison(),
-                    const SizedBox(height: AppTheme.space24),
-                    _buildInterpretationCard(),
-                    const SizedBox(height: AppTheme.space24),
-                    _buildCategoryComparisons(),
-                  ],
-                ),
-              ),
-            ),
-    );
-  }
-
-  Widget _buildMonthSelector() {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(AppTheme.space16),
-        child: Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Bulan Ini',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: AppTheme.textSecondary,
-                      fontWeight: FontWeight.w600,
+      backgroundColor: paper,
+      body: SafeArea(
+        child: _loading
+            ? const LoadingStateWidget(message: 'Menganalisis data...')
+            : _comparisonResult == null || _comparisonResult!.isEmpty
+                ? Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      EditorialHeader(
+                        eyebrow: 'PERBANDINGAN',
+                        title: 'Bulan vs.\nBulan.',
+                        titleSize: 36,
+                        trailing: IconButton(
+                          icon: Icon(Icons.info_outline,
+                              color: secondary, size: 20),
+                          onPressed: _showInfoDialog,
+                        ),
+                      ),
+                      Expanded(
+                        child: EmptyStateWidget(
+                          icon: Icons.analytics_outlined,
+                          title: 'Tidak ada data',
+                          description:
+                              'Belum ada data pengeluaran untuk dibandingkan.',
+                        ),
+                      ),
+                    ],
+                  )
+                : RefreshIndicator(
+                    onRefresh: _loadData,
+                    child: ListView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      padding: EdgeInsets.zero,
+                      children: [
+                        EditorialHeader(
+                          eyebrow: 'PERBANDINGAN',
+                          title: 'Bulan vs.\nBulan.',
+                          titleSize: 36,
+                          trailing: IconButton(
+                            icon: Icon(Icons.info_outline,
+                                color: secondary, size: 20),
+                            onPressed: _showInfoDialog,
+                          ),
+                        ),
+                        _buildEditorialOverview(),
+                        _buildEditorialInterpretation(),
+                        _buildEditorialCategoryList(),
+                        const SizedBox(height: AppTheme.space40),
+                      ],
                     ),
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    DateFormat(
-                      'MMMM yyyy',
-                      'id_ID',
-                    ).format(DateTime.parse('$_currentMonth-01')),
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const Icon(Icons.compare_arrows, color: AppTheme.primaryColor),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    'Bulan Lalu',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: AppTheme.textSecondary,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    DateFormat(
-                      'MMMM yyyy',
-                      'id_ID',
-                    ).format(DateTime.parse('$_previousMonth-01')),
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                    ),
-                    textAlign: TextAlign.right,
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }
 
-  Widget _buildOverallComparison() {
+  Widget _buildEditorialOverview() {
     final currentTotal = _comparisonResult!['currentTotal'] as double;
     final previousTotal = _comparisonResult!['previousTotal'] as double;
     final change = _comparisonResult!['percentageChange'] as double;
     final isSignificant = _comparisonResult!['isSignificant'] as bool;
-
     final money = NumberFormat.currency(
       locale: 'id_ID',
       symbol: 'Rp ',
       decimalDigits: 0,
     );
+    final ink = ThemeUtils.getTextPrimary(context);
+    final secondary = ThemeUtils.getTextSecondary(context);
+    final expense = ThemeUtils.getExpenseColor(context);
+    final income = ThemeUtils.getIncomeColor(context);
+    final accent = ThemeUtils.getPrimaryColor(context);
+    final isUp = change >= 0;
+    final changeColor = isUp ? expense : income;
 
-    return Container(
-      padding: const EdgeInsets.all(AppTheme.space16),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: change >= 0
-              ? [Colors.red.shade400, Colors.red.shade600]
-              : [Colors.green.shade400, Colors.green.shade600],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
-        boxShadow: [
-          BoxShadow(
-            color: (change >= 0 ? Colors.red : Colors.green).withOpacity(0.3),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppTheme.pageGutter,
+        AppTheme.space24,
+        AppTheme.pageGutter,
+        AppTheme.space24,
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Bulan Ini',
-                      style: TextStyle(
-                        color: Colors.white70,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      money.format(currentTotal),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 20,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 8,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.25),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      change >= 0 ? Icons.trending_up : Icons.trending_down,
-                      color: Colors.white,
-                      size: 20,
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      '${change >= 0 ? '+' : ''}${change.toStringAsFixed(1)}%',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppTheme.space16),
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(12),
-            ),
+          // Two columns: bulan ini, bulan lalu
+          IntrinsicHeight(
             child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(
-                  isSignificant
-                      ? Icons.warning_amber_rounded
-                      : Icons.check_circle_outline,
-                  color: Colors.white,
-                  size: 20,
-                ),
-                const SizedBox(width: 12),
                 Expanded(
-                  child: Text(
-                    isSignificant
-                        ? 'Perubahan Signifikan Terdeteksi (p < 0.05)'
-                        : 'Perubahan Tidak Signifikan (p > 0.05)',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                    ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Eyebrow('BULAN INI', color: secondary),
+                      const SizedBox(height: AppTheme.space4),
+                      Text(
+                        DateFormat('MMM yyyy', 'id_ID')
+                            .format(DateTime.parse('$_currentMonth-01')),
+                        style: GoogleFonts.inter(
+                          fontSize: 12,
+                          color: secondary,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: AppTheme.space12),
+                      Text(
+                        money.format(currentTotal),
+                        style: GoogleFonts.spaceGrotesk(
+                          fontSize: 24,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: -0.5,
+                          color: ink,
+                          height: 1.05,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const VerticalHairline(),
+                const SizedBox(width: AppTheme.space20),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Eyebrow('BULAN LALU', color: secondary),
+                      const SizedBox(height: AppTheme.space4),
+                      Text(
+                        DateFormat('MMM yyyy', 'id_ID')
+                            .format(DateTime.parse('$_previousMonth-01')),
+                        style: GoogleFonts.inter(
+                          fontSize: 12,
+                          color: secondary,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: AppTheme.space12),
+                      Text(
+                        money.format(previousTotal),
+                        style: GoogleFonts.spaceGrotesk(
+                          fontSize: 24,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: -0.5,
+                          color: secondary,
+                          height: 1.05,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
             ),
           ),
-          const Divider(height: 24, color: Colors.white30),
+          const SizedBox(height: AppTheme.space24),
+          // Big delta
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
-                'Bulan Lalu',
-                style: TextStyle(
-                  color: Colors.white70,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                ),
+              AccentBar(
+                width: 24,
+                height: 2,
+                color: changeColor,
               ),
-              Text(
-                money.format(previousTotal),
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
+              const SizedBox(width: AppTheme.space8),
+              Eyebrow(
+                isUp ? 'NAIK' : 'TURUN',
+                color: changeColor,
+              ),
+            ],
+          ),
+          const SizedBox(height: AppTheme.space8),
+          Text(
+            '${isUp ? '+' : ''}${change.toStringAsFixed(1)}%',
+            style: GoogleFonts.spaceGrotesk(
+              fontSize: 56,
+              fontWeight: FontWeight.w600,
+              letterSpacing: -1.5,
+              height: 1.0,
+              color: changeColor,
+            ),
+          ),
+          const SizedBox(height: AppTheme.space12),
+          Row(
+            children: [
+              Container(
+                width: 8,
+                height: 8,
+                color: isSignificant ? accent : secondary,
+              ),
+              const SizedBox(width: AppTheme.space8),
+              Expanded(
+                child: Text(
+                  isSignificant
+                      ? 'Perubahan signifikan secara statistik (p < 0.05)'
+                      : 'Perubahan tidak signifikan (p > 0.05)',
+                  style: GoogleFonts.inter(
+                    fontSize: 12,
+                    color: secondary,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
               ),
             ],
@@ -563,59 +500,57 @@ class _MonthlyComparisonPageState extends State<MonthlyComparisonPage> {
     );
   }
 
-  Widget _buildInterpretationCard() {
+  Widget _buildEditorialInterpretation() {
     final interpretation = _comparisonResult!['interpretation'] as String;
+    final secondary = ThemeUtils.getTextSecondary(context);
+    final ink = ThemeUtils.getTextPrimary(context);
 
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(AppTheme.space16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: AppTheme.primaryColor.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: const Icon(
-                    Icons.insights,
-                    color: AppTheme.primaryColor,
-                    size: 20,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                const Text(
-                  'Analisis Statistik',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-                ),
-              ],
-            ),
-            const SizedBox(height: AppTheme.space16),
-            Text(
-              interpretation,
-              style: TextStyle(
-                fontSize: 14,
-                height: 1.6,
-                color: AppTheme.textPrimary,
-              ),
-            ),
-          ],
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const EditorialSectionHeader(
+          eyebrow: 'TAFSIR',
+          title: 'Apa artinya?',
         ),
-      ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(
+            AppTheme.pageGutter,
+            0,
+            AppTheme.pageGutter,
+            AppTheme.space24,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                interpretation,
+                style: GoogleFonts.inter(
+                  fontSize: 14,
+                  height: 1.7,
+                  color: ink,
+                ),
+              ),
+              const SizedBox(height: AppTheme.space12),
+              Text(
+                'Berdasarkan ambang batas 10% dan p-value sederhana.',
+                style: GoogleFonts.inter(
+                  fontSize: 11,
+                  color: secondary,
+                  fontStyle: FontStyle.italic,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
-  Widget _buildCategoryComparisons() {
+  Widget _buildEditorialCategoryList() {
     final categories =
         _comparisonResult!['categoryComparisons'] as List<Map<String, dynamic>>;
 
-    if (categories.isEmpty) {
-      return const SizedBox.shrink();
-    }
-
+    if (categories.isEmpty) return const SizedBox.shrink();
     final money = NumberFormat.currency(
       locale: 'id_ID',
       symbol: 'Rp ',
@@ -625,152 +560,15 @@ class _MonthlyComparisonPageState extends State<MonthlyComparisonPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Perbandingan Per Kategori',
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+        EditorialSectionHeader(
+          eyebrow: 'KATEGORI',
+          title: '${categories.length} entri',
         ),
-        const SizedBox(height: AppTheme.space16),
-        ...categories.map((cat) {
-          final change = cat['change'] as double;
-          final isSignificant = cat['isSignificant'] as bool;
-          final pValue = cat['pValue'] as double;
-
-          return Card(
-            margin: const EdgeInsets.only(bottom: AppTheme.space12),
-            child: Padding(
-              padding: const EdgeInsets.all(AppTheme.space16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Text(
-                        cat['emoji'] as String,
-                        style: const TextStyle(fontSize: 28),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              cat['category'] as String,
-                              style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              isSignificant
-                                  ? 'Signifikan (p = ${pValue.toStringAsFixed(3)})'
-                                  : 'Tidak Signifikan (p > 0.05)',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: isSignificant
-                                    ? Colors.orange.shade700
-                                    : AppTheme.textSecondary,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 6,
-                        ),
-                        decoration: BoxDecoration(
-                          color: (change >= 0 ? Colors.red : Colors.green)
-                              .withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(
-                              change >= 0
-                                  ? Icons.arrow_upward
-                                  : Icons.arrow_downward,
-                              size: 14,
-                              color: change >= 0 ? Colors.red : Colors.green,
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              '${change >= 0 ? '+' : ''}${change.toStringAsFixed(1)}%',
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w700,
-                                color: change >= 0 ? Colors.red : Colors.green,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                  const Divider(height: 24),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Bulan Ini',
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: AppTheme.textSecondary,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              money.format(cat['currentAmount']),
-                              style: const TextStyle(
-                                fontSize: 15,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const Icon(
-                        Icons.arrow_forward,
-                        size: 16,
-                        color: AppTheme.textSecondary,
-                      ),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            Text(
-                              'Bulan Lalu',
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: AppTheme.textSecondary,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              money.format(cat['previousAmount']),
-                              style: const TextStyle(
-                                fontSize: 15,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          );
-        }),
+        for (final cat in categories)
+          _CategoryComparisonRow(
+            cat: cat,
+            money: money,
+          ),
       ],
     );
   }
@@ -819,6 +617,173 @@ class _MonthlyComparisonPageState extends State<MonthlyComparisonPage> {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _CategoryComparisonRow extends StatelessWidget {
+  final Map<String, dynamic> cat;
+  final NumberFormat money;
+
+  const _CategoryComparisonRow({required this.cat, required this.money});
+
+  @override
+  Widget build(BuildContext context) {
+    final ink = ThemeUtils.getTextPrimary(context);
+    final secondary = ThemeUtils.getTextSecondary(context);
+    final expense = ThemeUtils.getExpenseColor(context);
+    final income = ThemeUtils.getIncomeColor(context);
+    final isDark = ThemeUtils.isDarkMode(context);
+    final hairline = isDark ? AppTheme.darkHairlineColor : AppTheme.hairlineColor;
+    final change = cat['change'] as double;
+    final isSignificant = cat['isSignificant'] as bool;
+    final isUp = change >= 0;
+    final changeColor = isUp ? expense : income;
+    final currentAmount = (cat['currentAmount'] as num).toDouble();
+    final previousAmount = (cat['previousAmount'] as num).toDouble();
+    final maxOfTwo = (currentAmount > previousAmount ? currentAmount : previousAmount).clamp(1, double.infinity);
+    final currentRatio = (currentAmount / maxOfTwo).clamp(0.0, 1.0);
+    final previousRatio = (previousAmount / maxOfTwo).clamp(0.0, 1.0);
+
+    return Column(
+      children: [
+        const Hairline(),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(
+            AppTheme.pageGutter,
+            AppTheme.space20,
+            AppTheme.pageGutter,
+            AppTheme.space20,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Text(
+                    cat['emoji'] as String,
+                    style: const TextStyle(fontSize: 22),
+                  ),
+                  const SizedBox(width: AppTheme.space12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          cat['category'] as String,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.spaceGrotesk(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: -0.3,
+                            color: ink,
+                          ),
+                        ),
+                        const SizedBox(height: AppTheme.space4),
+                        Text(
+                          isSignificant
+                              ? 'Signifikan'
+                              : 'Tidak signifikan',
+                          style: GoogleFonts.inter(
+                            fontSize: 11,
+                            color: secondary,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: AppTheme.space12),
+                  Text(
+                    '${isUp ? '+' : ''}${change.toStringAsFixed(1)}%',
+                    style: GoogleFonts.spaceGrotesk(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: -0.3,
+                      color: changeColor,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: AppTheme.space16),
+              // Two slim bars: current and previous
+              _MiniBar(
+                eyebrow: 'BULAN INI',
+                value: money.format(currentAmount),
+                ratio: currentRatio,
+                color: changeColor,
+                hairline: hairline,
+                ink: ink,
+                secondary: secondary,
+              ),
+              const SizedBox(height: AppTheme.space8),
+              _MiniBar(
+                eyebrow: 'BULAN LALU',
+                value: money.format(previousAmount),
+                ratio: previousRatio,
+                color: secondary,
+                hairline: hairline,
+                ink: ink,
+                secondary: secondary,
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _MiniBar extends StatelessWidget {
+  final String eyebrow;
+  final String value;
+  final double ratio;
+  final Color color;
+  final Color hairline;
+  final Color ink;
+  final Color secondary;
+
+  const _MiniBar({
+    required this.eyebrow,
+    required this.value,
+    required this.ratio,
+    required this.color,
+    required this.hairline,
+    required this.ink,
+    required this.secondary,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        SizedBox(
+          width: 78,
+          child: Eyebrow(eyebrow, color: secondary, size: 10),
+        ),
+        Expanded(
+          child: Container(
+            height: 6,
+            color: hairline,
+            child: FractionallySizedBox(
+              alignment: Alignment.centerLeft,
+              widthFactor: ratio,
+              child: Container(color: color),
+            ),
+          ),
+        ),
+        const SizedBox(width: AppTheme.space12),
+        Text(
+          value,
+          style: GoogleFonts.inter(
+            fontSize: 12,
+            color: ink,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
     );
   }
 }

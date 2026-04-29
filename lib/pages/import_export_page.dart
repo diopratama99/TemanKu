@@ -3,17 +3,16 @@ import 'dart:io';
 import 'package:csv/csv.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
-import 'package:google_sign_in/google_sign_in.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
-
 import '../data/app_database.dart';
-import '../services/drive_backup_service.dart';
-import '../state/auth_notifier.dart';
+import '../theme/app_theme.dart';
+import '../utils/theme_utils.dart';
+import '../widgets/editorial.dart';
 
 class ImportExportPage extends StatefulWidget {
   const ImportExportPage({super.key});
@@ -26,8 +25,6 @@ class _ImportExportPageState extends State<ImportExportPage> {
   late DateTime _start;
   late DateTime _end;
   bool _busy = false;
-  final _driveService = DriveBackupService();
-  GoogleSignInAccount? _googleUser;
 
   @override
   void initState() {
@@ -35,16 +32,6 @@ class _ImportExportPageState extends State<ImportExportPage> {
     final now = DateTime.now();
     _start = DateTime(now.year, now.month, 1);
     _end = DateTime(now.year, now.month + 1, 0);
-    _checkGoogleSignIn();
-  }
-
-  Future<void> _checkGoogleSignIn() async {
-    final googleSignIn = GoogleSignIn(
-      scopes: ['email', 'https://www.googleapis.com/auth/drive.file'],
-      serverClientId: dotenv.env['GOOGLE_WEB_CLIENT_ID'] ?? '',
-    );
-    _googleUser = await googleSignIn.signInSilently();
-    if (mounted) setState(() {});
   }
 
   String _iso(DateTime d) => DateFormat('yyyy-MM-dd').format(d);
@@ -52,16 +39,12 @@ class _ImportExportPageState extends State<ImportExportPage> {
   Future<void> _exportCsv() async {
     setState(() => _busy = true);
     final db = context.read<AppDatabase>();
-    final userId = context.read<AuthNotifier>().user!['id'] as int;
-    final rows = await db.db.rawQuery(
-      '''
-      SELECT t.date, t.type, c.name as category, t.amount, t.source_or_payee, t.account, t.notes
-      FROM transactions t JOIN categories c ON c.id=t.category_id
-      WHERE t.user_id=? AND t.date BETWEEN ? AND ?
-      ORDER BY t.date ASC
-    ''',
-      [userId, _iso(_start), _iso(_end)],
+    final rows = await db.getTransactions(
+      startDate: _iso(_start),
+      endDate: _iso(_end),
     );
+    // Sort ascending for export
+    rows.sort((a, b) => (a['date'] as String).compareTo(b['date'] as String));
     final csvRows = <List<dynamic>>[
       [
         'date',
@@ -94,149 +77,6 @@ class _ImportExportPageState extends State<ImportExportPage> {
     setState(() => _busy = false);
   }
 
-  Future<void> _backupToDrive() async {
-    // Check if user is signed in with Google
-    if (_googleUser == null) {
-      final googleSignIn = GoogleSignIn(
-        scopes: ['email', 'https://www.googleapis.com/auth/drive.file'],
-        serverClientId: dotenv.env['GOOGLE_WEB_CLIENT_ID'] ?? '',
-      );
-
-      try {
-        _googleUser = await googleSignIn.signIn();
-        if (_googleUser == null) {
-          if (!mounted) return;
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: const Text('Login Google dibatalkan'),
-              duration: const Duration(seconds: 3),
-              action: SnackBarAction(
-                label: 'OK',
-                textColor: Colors.white,
-                onPressed: () {},
-              ),
-            ),
-          );
-          return;
-        }
-      } catch (e) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error login Google: ${e.toString()}'),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 4),
-            action: SnackBarAction(
-              label: 'OK',
-              textColor: Colors.white,
-              onPressed: () {},
-            ),
-          ),
-        );
-        return;
-      }
-    }
-
-    setState(() => _busy = true);
-
-    try {
-      // Export CSV first
-      final db = context.read<AppDatabase>();
-      final userId = context.read<AuthNotifier>().user!['id'] as int;
-      final rows = await db.db.rawQuery(
-        '''
-        SELECT t.date, t.type, c.name as category, t.amount, t.source_or_payee, t.account, t.notes
-        FROM transactions t JOIN categories c ON c.id=t.category_id
-        WHERE t.user_id=? AND t.date BETWEEN ? AND ?
-        ORDER BY t.date ASC
-      ''',
-        [userId, _iso(_start), _iso(_end)],
-      );
-
-      final csvRows = <List<dynamic>>[
-        [
-          'date',
-          'type',
-          'category',
-          'amount',
-          'source_or_payee',
-          'account',
-          'notes',
-        ],
-        ...rows.map(
-          (r) => [
-            r['date'],
-            r['type'],
-            r['category'],
-            r['amount'],
-            r['source_or_payee'] ?? '',
-            r['account'] ?? '',
-            r['notes'] ?? '',
-          ],
-        ),
-      ];
-
-      final csv = const ListToCsvConverter().convert(csvRows);
-      final tempDir = await getTemporaryDirectory();
-      final fileName =
-          'temanku_backup_${_iso(_start)}_${_iso(_end)}_${DateTime.now().millisecondsSinceEpoch}.csv';
-      final file = File(p.join(tempDir.path, fileName));
-      await file.writeAsString(csv);
-
-      // Upload to Google Drive
-      final fileId = await _driveService.uploadToGoogleDrive(
-        file: file,
-        fileName: fileName,
-        googleUser: _googleUser!,
-      );
-
-      if (!mounted) return;
-
-      if (fileId != null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('✅ Backup berhasil di-upload ke Google Drive'),
-            backgroundColor: Colors.green,
-            duration: const Duration(seconds: 3),
-            action: SnackBarAction(
-              label: 'OK',
-              textColor: Colors.white,
-              onPressed: () {},
-            ),
-          ),
-        );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Gagal upload ke Google Drive'),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 4),
-            action: SnackBarAction(
-              label: 'OK',
-              textColor: Colors.white,
-              onPressed: () {},
-            ),
-          ),
-        );
-      }
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error backup: ${e.toString()}'),
-          backgroundColor: Colors.red,
-          duration: const Duration(seconds: 5),
-          action: SnackBarAction(
-            label: 'OK',
-            textColor: Colors.white,
-            onPressed: () {},
-          ),
-        ),
-      );
-    } finally {
-      setState(() => _busy = false);
-    }
-  }
 
   Future<void> _importCsv() async {
     final res = await FilePicker.platform.pickFiles(
@@ -253,8 +93,7 @@ class _ImportExportPageState extends State<ImportExportPage> {
     final idx = {
       for (var i = 0; i < header.length; i++) header[i].toLowerCase(): i,
     };
-    final userId = context.read<AuthNotifier>().user!['id'] as int;
-    final db = context.read<AppDatabase>().db;
+    final db = context.read<AppDatabase>();
     for (int i = 1; i < parsed.length; i++) {
       final row = parsed[i];
       String date = row[idx['date']!].toString();
@@ -272,25 +111,20 @@ class _ImportExportPageState extends State<ImportExportPage> {
           : '';
 
       // Ensure category exists
-      final catRows = await db.query(
-        'categories',
-        where: 'user_id=? AND type=? AND name=?',
-        whereArgs: [userId, type, categoryName],
-        limit: 1,
-      );
+      final cats = await db.getCategories(type);
       int catId;
-      if (catRows.isEmpty) {
-        catId = await db.insert('categories', {
-          'user_id': userId,
+      final match = cats.where((c) => c['name'] == categoryName).toList();
+      if (match.isEmpty) {
+        final newCat = await db.insertCategory({
           'type': type,
           'name': categoryName,
         });
+        catId = newCat['id'] as int;
       } else {
-        catId = catRows.first['id'] as int;
+        catId = match.first['id'] as int;
       }
 
-      await db.insert('transactions', {
-        'user_id': userId,
+      await db.insertTransaction({
         'date': date,
         'type': type,
         'category_id': catId,
@@ -309,80 +143,247 @@ class _ImportExportPageState extends State<ImportExportPage> {
 
   @override
   Widget build(BuildContext context) {
+    final paper = ThemeUtils.getBackgroundColor(context);
+    final secondary = ThemeUtils.getTextSecondary(context);
+    final ink = ThemeUtils.getTextPrimary(context);
+    final accent = ThemeUtils.getPrimaryColor(context);
+
     return Scaffold(
-      appBar: AppBar(title: const Text('Import / Export')),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          const Text('Rentang tanggal untuk Export'),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton(
-                  onPressed: () async {
-                    final picked = await showDatePicker(
-                      context: context,
-                      initialDate: _start,
-                      firstDate: DateTime(2000),
-                      lastDate: DateTime(2100),
-                    );
-                    if (picked != null) setState(() => _start = picked);
-                  },
-                  child: Text('Start: ${_iso(_start)}'),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: OutlinedButton(
-                  onPressed: () async {
-                    final picked = await showDatePicker(
-                      context: context,
-                      initialDate: _end,
-                      firstDate: DateTime(2000),
-                      lastDate: DateTime(2100),
-                    );
-                    if (picked != null) setState(() => _end = picked);
-                  },
-                  child: Text('End: ${_iso(_end)}'),
+      backgroundColor: paper,
+      body: SafeArea(
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: EdgeInsets.zero,
+          children: [
+            EditorialHeader(
+              eyebrow: 'ARSIP',
+              title: 'Salin & cadangkan.',
+              metaEyebrow: 'PERIODE',
+              meta: '${_iso(_start)}\n${_iso(_end)}',
+              titleSize: 32,
+            ),
+
+            // Period picker
+            const SizedBox(height: AppTheme.space8),
+            _IORowAction(
+              eyebrow: 'MULAI',
+              title: _iso(_start),
+              caption: 'Tanggal awal export',
+              onTap: () async {
+                final picked = await showDatePicker(
+                  context: context,
+                  initialDate: _start,
+                  firstDate: DateTime(2000),
+                  lastDate: DateTime(2100),
+                );
+                if (picked != null) setState(() => _start = picked);
+              },
+            ),
+            _IORowAction(
+              eyebrow: 'AKHIR',
+              title: _iso(_end),
+              caption: 'Tanggal akhir export',
+              onTap: () async {
+                final picked = await showDatePicker(
+                  context: context,
+                  initialDate: _end,
+                  firstDate: DateTime(2000),
+                  lastDate: DateTime(2100),
+                );
+                if (picked != null) setState(() => _end = picked);
+              },
+            ),
+
+            // Export section
+            const SizedBox(height: AppTheme.space24),
+            const EditorialSectionHeader(
+              eyebrow: 'EKSPOR',
+              title: 'Bagikan catatanmu',
+            ),
+            _IORowAction(
+              eyebrow: 'CSV',
+              title: 'Bagikan file CSV',
+              caption: 'Buka share sheet sistem',
+              icon: Icons.ios_share_outlined,
+              onTap: _busy ? null : _exportCsv,
+            ),
+            // Import section
+            const SizedBox(height: AppTheme.space24),
+            const EditorialSectionHeader(
+              eyebrow: 'IMPOR',
+              title: 'Muat ulang dari berkas',
+            ),
+            _IORowAction(
+              eyebrow: 'CSV',
+              title: 'Pilih berkas .csv',
+              caption: 'Format kolom: date, type, category, amount, ...',
+              icon: Icons.file_upload_outlined,
+              onTap: _busy ? null : _importCsv,
+            ),
+
+            if (_busy) ...[
+              const Hairline(),
+              Padding(
+                padding: const EdgeInsets.all(AppTheme.space24),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 1.5,
+                        color: accent,
+                      ),
+                    ),
+                    const SizedBox(width: AppTheme.space12),
+                    Text(
+                      'Memproses...',
+                      style: GoogleFonts.inter(
+                        fontSize: 12,
+                        letterSpacing: 1.6,
+                        fontWeight: FontWeight.w600,
+                        color: secondary,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
-          ),
-          const SizedBox(height: 12),
-          FilledButton.icon(
-            onPressed: _busy ? null : _exportCsv,
-            icon: const Icon(Icons.download),
-            label: const Text('Export CSV (Share)'),
-          ),
-          const SizedBox(height: 12),
-          FilledButton.icon(
-            onPressed: _busy ? null : _backupToDrive,
-            icon: const Icon(Icons.cloud_upload),
-            label: const Text('Backup to Google Drive'),
-            style: FilledButton.styleFrom(backgroundColor: Colors.green),
-          ),
-          const SizedBox(height: 8),
-          if (_googleUser != null)
+            const SizedBox(height: AppTheme.space40),
+
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppTheme.pageGutter,
+              ),
               child: Text(
-                '✅ Signed in: ${_googleUser!.email}',
-                style: TextStyle(fontSize: 12, color: Colors.green.shade700),
-                textAlign: TextAlign.center,
+                'CSV Temanku menggunakan koma sebagai pemisah. Kolom wajib: date, type, category, amount.',
+                style: GoogleFonts.inter(
+                  fontSize: 12,
+                  height: 1.6,
+                  color: secondary,
+                ),
               ),
             ),
-          const SizedBox(height: 24),
-          FilledButton.icon(
-            onPressed: _busy ? null : _importCsv,
-            icon: const Icon(Icons.upload),
-            label: const Text('Import CSV'),
-          ),
-          if (_busy)
-            const Padding(
-              padding: EdgeInsets.all(16),
-              child: Center(child: CircularProgressIndicator()),
+            const SizedBox(height: AppTheme.space32),
+            _ColophonNote(ink: ink, secondary: secondary),
+            const SizedBox(height: AppTheme.space40),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Editorial-styled actionable row.
+class _IORowAction extends StatelessWidget {
+  final String eyebrow;
+  final String title;
+  final String? caption;
+  final IconData? icon;
+  final VoidCallback? onTap;
+  final bool accent;
+
+  const _IORowAction({
+    required this.eyebrow,
+    required this.title,
+    this.caption,
+    this.icon,
+    this.onTap,
+    this.accent = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final secondary = ThemeUtils.getTextSecondary(context);
+    final ink = ThemeUtils.getTextPrimary(context);
+    final accentColor = ThemeUtils.getPrimaryColor(context);
+    final disabled = onTap == null;
+
+    return Column(
+      children: [
+        const Hairline(),
+        Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: onTap,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppTheme.pageGutter,
+                vertical: AppTheme.space20,
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Eyebrow(eyebrow, color: secondary),
+                        const SizedBox(height: AppTheme.space8),
+                        Text(
+                          title,
+                          style: GoogleFonts.spaceGrotesk(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: -0.3,
+                            color: disabled ? secondary : ink,
+                          ),
+                        ),
+                        if (caption != null) ...[
+                          const SizedBox(height: AppTheme.space4),
+                          Text(
+                            caption!,
+                            style: GoogleFonts.inter(
+                              fontSize: 12,
+                              color: secondary,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  if (icon != null) ...[
+                    const SizedBox(width: AppTheme.space16),
+                    Icon(
+                      icon,
+                      size: 22,
+                      color: accent ? accentColor : ink,
+                    ),
+                  ],
+                ],
+              ),
             ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ColophonNote extends StatelessWidget {
+  final Color ink;
+  final Color secondary;
+  const _ColophonNote({required this.ink, required this.secondary});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: AppTheme.pageGutter),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Hairline(),
+          const SizedBox(height: AppTheme.space16),
+          Eyebrow('KOLOFON', color: secondary),
+          const SizedBox(height: AppTheme.space8),
+          Text(
+            'Ekspor dalam format CSV yang kompatibel dengan Excel, Google Sheets, dan aplikasi keuangan lainnya.',
+            style: GoogleFonts.inter(
+              fontSize: 12,
+              height: 1.6,
+              color: secondary,
+            ),
+          ),
         ],
       ),
     );

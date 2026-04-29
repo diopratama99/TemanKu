@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
@@ -6,7 +7,9 @@ import '../data/app_database.dart';
 import '../state/auth_notifier.dart';
 import '../theme/app_theme.dart';
 import '../utils/descriptive_statistics.dart';
+import '../utils/theme_utils.dart';
 import '../widgets/category_donut_chart.dart';
+import '../widgets/editorial.dart';
 
 /// Modern Statistics Page - Financial Analytics & Insights
 class StatisticsPage extends StatefulWidget {
@@ -75,17 +78,16 @@ class _StatisticsPageState extends State<StatisticsPage>
       return;
     }
 
-    final uid = user['id'] as int;
-    final data = await db.dashboardData(uid, _iso(_start), _iso(_end));
+    final data = await db.dashboardData(_iso(_start), _iso(_end));
 
     // Load transaction amounts for descriptive statistics
-    final transactions = await _loadTransactionAmounts(db, uid);
+    final transactions = await _loadTransactionAmounts(db);
 
     // Load category data for donut chart
-    final categoryData = await _loadCategoryData(db, uid);
+    final categoryData = await _loadCategoryData(db);
 
     // Load transaction counts
-    final transactionCounts = await _loadTransactionCounts(db, uid);
+    final transactionCounts = await _loadTransactionCounts(db);
     data['transaction_counts'] = transactionCounts;
 
     setState(() {
@@ -98,103 +100,60 @@ class _StatisticsPageState extends State<StatisticsPage>
     });
   }
 
-  Future<Map<String, int>> _loadTransactionCounts(
-    AppDatabase db,
-    int userId,
-  ) async {
-    final result = await db.db.rawQuery(
-      '''
-      SELECT type, COUNT(*) as count
-      FROM transactions
-      WHERE user_id = ? AND date BETWEEN ? AND ?
-      GROUP BY type
-      ''',
-      [userId, _iso(_start), _iso(_end)],
+  Future<Map<String, int>> _loadTransactionCounts(AppDatabase db) async {
+    final rows = await db.getTransactions(
+      startDate: _iso(_start),
+      endDate: _iso(_end),
     );
 
     int incomeCount = 0;
     int expenseCount = 0;
-
-    for (final row in result) {
-      final type = row['type'] as String?;
-      final count = (row['count'] as int?) ?? 0;
-
-      if (type == 'income') {
-        incomeCount = count;
-      } else if (type == 'expense') {
-        expenseCount = count;
-      }
+    for (final row in rows) {
+      if (row['type'] == 'income') incomeCount++;
+      else if (row['type'] == 'expense') expenseCount++;
     }
-
     return {'income': incomeCount, 'expense': expenseCount};
   }
 
-  Future<Map<String, List<double>>> _loadTransactionAmounts(
-    AppDatabase db,
-    int userId,
-  ) async {
-    final result = await db.db.rawQuery(
-      '''
-      SELECT type, amount
-      FROM transactions
-      WHERE user_id = ? AND date BETWEEN ? AND ?
-      ORDER BY amount
-      ''',
-      [userId, _iso(_start), _iso(_end)],
+  Future<Map<String, List<double>>> _loadTransactionAmounts(AppDatabase db) async {
+    final rows = await db.getTransactions(
+      startDate: _iso(_start),
+      endDate: _iso(_end),
     );
 
     final expenseAmounts = <double>[];
     final incomeAmounts = <double>[];
-
-    for (final row in result) {
+    for (final row in rows) {
       final type = row['type'] as String?;
       final amount = (row['amount'] as num?)?.toDouble() ?? 0;
-
-      if (type == 'expense') {
-        expenseAmounts.add(amount);
-      } else if (type == 'income') {
-        incomeAmounts.add(amount);
-      }
+      if (type == 'expense') expenseAmounts.add(amount);
+      else if (type == 'income') incomeAmounts.add(amount);
     }
-
+    expenseAmounts.sort();
+    incomeAmounts.sort();
     return {'expense': expenseAmounts, 'income': incomeAmounts};
   }
 
-  Future<Map<String, Map<String, double>>> _loadCategoryData(
-    AppDatabase db,
-    int userId,
-  ) async {
-    final result = await db.db.rawQuery(
-      '''
-      SELECT t.type, c.name as category, c.emoji, SUM(t.amount) as total
-      FROM transactions t
-      LEFT JOIN categories c ON t.category_id = c.id
-      WHERE t.user_id = ? AND t.date BETWEEN ? AND ?
-      GROUP BY t.type, c.name, c.emoji
-      ORDER BY total DESC
-      ''',
-      [userId, _iso(_start), _iso(_end)],
+  Future<Map<String, Map<String, double>>> _loadCategoryData(AppDatabase db) async {
+    final rows = await db.getTransactions(
+      startDate: _iso(_start),
+      endDate: _iso(_end),
     );
 
     final expenseData = <String, double>{};
     final incomeData = <String, double>{};
-
-    for (final row in result) {
+    for (final row in rows) {
       final type = row['type'] as String?;
       final category = (row['category'] as String?) ?? 'Lainnya';
-      final emoji = (row['emoji'] as String?) ?? '📝';
-      final total = (row['total'] as num?)?.toDouble() ?? 0;
-
-      // Combine emoji + category name
+      final emoji = (row['category_emoji'] as String?) ?? '📝';
+      final amount = (row['amount'] as num?)?.toDouble() ?? 0;
       final displayName = '$emoji $category';
-
       if (type == 'expense') {
-        expenseData[displayName] = total;
+        expenseData[displayName] = (expenseData[displayName] ?? 0) + amount;
       } else if (type == 'income') {
-        incomeData[displayName] = total;
+        incomeData[displayName] = (incomeData[displayName] ?? 0) + amount;
       }
     }
-
     return {'expense': expenseData, 'income': incomeData};
   }
 
@@ -211,41 +170,68 @@ class _StatisticsPageState extends State<StatisticsPage>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppTheme.backgroundColor,
-      appBar: AppBar(
-        backgroundColor: AppTheme.primaryColor,
-        foregroundColor: Colors.white,
-        elevation: 0,
-        centerTitle: true,
-        title: const Text(
-          'Statistik',
-          style: TextStyle(fontWeight: FontWeight.w700),
-        ),
-        bottom: TabBar(
-          controller: _tabController,
-          indicatorColor: Colors.white,
-          labelColor: Colors.white,
-          unselectedLabelColor: Colors.white70,
-          tabs: const [
-            Tab(text: 'Ringkasan'),
-            Tab(text: 'Detail'),
-          ],
-        ),
-      ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : TabBarView(
-              controller: _tabController,
-              children: [
-                // Tab 1: Summary Statistics (existing)
-                _buildSummaryTab(),
+    final paper = ThemeUtils.getBackgroundColor(context);
+    final secondary = ThemeUtils.getTextSecondary(context);
+    final ink = ThemeUtils.getTextPrimary(context);
+    final accent = ThemeUtils.getPrimaryColor(context);
 
-                // Tab 2: Descriptive Statistics (new)
-                _buildDescriptiveTab(),
-              ],
-            ),
+    return Scaffold(
+      backgroundColor: paper,
+      body: SafeArea(
+        child: _loading
+            ? Center(
+                child: SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 1.5,
+                    color: accent,
+                  ),
+                ),
+              )
+            : Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  EditorialHeader(
+                    eyebrow: 'STATISTIK',
+                    title: 'Analisa.',
+                    titleSize: 36,
+                    metaEyebrow: 'PERIODE',
+                    meta: _periodLabel(),
+                  ),
+                  // Custom segmented underline tabs
+                  _StatTabs(
+                    controller: _tabController,
+                    labels: const ['RINGKASAN', 'DETAIL'],
+                    ink: ink,
+                    secondary: secondary,
+                    accent: accent,
+                  ),
+                  const Hairline(),
+                  Expanded(
+                    child: TabBarView(
+                      controller: _tabController,
+                      children: [
+                        _buildSummaryTab(),
+                        _buildDescriptiveTab(),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+      ),
     );
+  }
+
+  String _periodLabel() {
+    switch (_selectedPeriod) {
+      case 'quarter':
+        return 'Kuartal';
+      case 'year':
+        return 'Tahun';
+      default:
+        return 'Bulan';
+    }
   }
 
   Widget _buildSummaryTab() {
@@ -254,618 +240,510 @@ class _StatisticsPageState extends State<StatisticsPage>
       child: _data == null
           ? const Center(child: Text('Belum ada data'))
           : ListView(
-              padding: const EdgeInsets.all(AppTheme.space16),
+              padding: EdgeInsets.zero,
               children: [
-                // Period Selector
-                _PeriodSelector(
+                _EditorialPeriodSelector(
                   selected: _selectedPeriod,
                   onChanged: _changePeriod,
                 ),
-
-                const SizedBox(height: AppTheme.space16),
-
-                // Summary Cards
-                _SummaryCards(
+                _EditorialSummaryStats(
                   income: _data!['income'] as num,
                   expense: _data!['expense'] as num,
                   net: _data!['net'] as num,
                   money: _money,
                 ),
-
-                const SizedBox(height: AppTheme.space16),
-
-                // Spending by Category Chart
-                _SpendingByCategoryCard(
+                _EditorialCategorySection(
                   data: List<Map<String, dynamic>>.from(
                     _data!['spend_by_cat'] as List,
                   ),
                   money: _money,
                 ),
-
-                const SizedBox(height: AppTheme.space16),
-
-                // Top Categories
-                _TopCategoriesCard(
-                  data: List<Map<String, dynamic>>.from(
-                    _data!['spend_by_cat'] as List,
-                  ),
-                  money: _money,
-                ),
-
-                const SizedBox(height: AppTheme.space16),
-
-                // Transaction Count
-                _TransactionCountCard(
-                  incomeCount:
-                      (_data!['transaction_counts']
+                _EditorialTransactionCount(
+                  incomeCount: (_data!['transaction_counts']
                           as Map<String, int>)['income'] ??
                       0,
-                  expenseCount:
-                      (_data!['transaction_counts']
+                  expenseCount: (_data!['transaction_counts']
                           as Map<String, int>)['expense'] ??
                       0,
                 ),
+                const SizedBox(height: AppTheme.space40),
               ],
             ),
     );
   }
 
   Widget _buildDescriptiveTab() {
+    final ink = ThemeUtils.getTextPrimary(context);
+    final secondary = ThemeUtils.getTextSecondary(context);
+
     return RefreshIndicator(
       onRefresh: _load,
       child: _expenseStats == null && _incomeStats == null
           ? const Center(child: Text('Belum ada data'))
           : ListView(
-              padding: const EdgeInsets.all(AppTheme.space16),
+              padding: EdgeInsets.zero,
               children: [
-                // Period Selector
-                _PeriodSelector(
+                _EditorialPeriodSelector(
                   selected: _selectedPeriod,
                   onChanged: _changePeriod,
                 ),
-
-                const SizedBox(height: AppTheme.space16),
-
-                // Info Card
-                _buildInfoCard(),
-
-                const SizedBox(height: AppTheme.space16),
-
-                // Expense Statistics
-                if (_expenseStats != null &&
-                    _expenseStats!.data.isNotEmpty) ...[
-                  _buildStatisticsCard(
-                    title: '📉 Statistika Pengeluaran',
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                    AppTheme.pageGutter,
+                    AppTheme.space20,
+                    AppTheme.pageGutter,
+                    AppTheme.space24,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Eyebrow('LEAD', color: secondary),
+                      const SizedBox(height: AppTheme.space8),
+                      Text(
+                        'Lihat detail keuanganmu — rata-rata pengeluaran, pola, dan transaksi yang tidak biasa.',
+                        style: GoogleFonts.spaceGrotesk(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w500,
+                          letterSpacing: -0.2,
+                          color: ink,
+                          height: 1.35,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (_expenseStats != null && _expenseStats!.data.isNotEmpty)
+                  _buildEditorialDescriptiveSection(
+                    eyebrow: 'PENGELUARAN',
+                    title: 'Pola pengeluaran',
                     stats: _expenseStats!,
-                    color: AppTheme.expenseColor,
+                    color: ThemeUtils.getExpenseColor(context),
                     categoryData: _expenseCategoryData,
                   ),
-                  const SizedBox(height: AppTheme.space16),
-                ],
-
-                // Income Statistics
-                if (_incomeStats != null && _incomeStats!.data.isNotEmpty) ...[
-                  _buildStatisticsCard(
-                    title: '📈 Statistika Pemasukan',
+                if (_incomeStats != null && _incomeStats!.data.isNotEmpty)
+                  _buildEditorialDescriptiveSection(
+                    eyebrow: 'PEMASUKAN',
+                    title: 'Pola pemasukan',
                     stats: _incomeStats!,
-                    color: AppTheme.incomeColor,
+                    color: ThemeUtils.getIncomeColor(context),
                     categoryData: _incomeCategoryData,
                   ),
-                ],
+                const SizedBox(height: AppTheme.space40),
               ],
             ),
     );
   }
 
-  Widget _buildInfoCard() {
-    return Card(
-      color: AppTheme.primaryColor.withOpacity(0.1),
-      child: Padding(
-        padding: const EdgeInsets.all(AppTheme.space16),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    AppTheme.primaryColor,
-                    AppTheme.primaryColor.withOpacity(0.7),
-                  ],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(12),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppTheme.primaryColor.withOpacity(0.3),
-                    blurRadius: 8,
-                    offset: const Offset(0, 3),
-                  ),
-                ],
-              ),
-              child: const Icon(
-                Icons.lightbulb_outline,
-                color: Colors.white,
-                size: 24,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                'Lihat detail keuanganmu: rata-rata pengeluaran, pola keuangan, dan transaksi yang tidak biasa',
-                style: TextStyle(
-                  fontSize: 13,
-                  color: AppTheme.textSecondary,
-                  height: 1.4,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildStatisticsCard({
+  Widget _buildEditorialDescriptiveSection({
+    required String eyebrow,
     required String title,
     required DescriptiveStatistics stats,
     required Color color,
     required Map<String, double> categoryData,
   }) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(AppTheme.space16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              title,
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
-                color: color,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Total ${stats.data.length} transaksi',
-              style: const TextStyle(
-                fontSize: 13,
-                color: AppTheme.textSecondary,
-              ),
-            ),
-            const SizedBox(height: AppTheme.space16),
+    final secondary = ThemeUtils.getTextSecondary(context);
+    final ink = ThemeUtils.getTextPrimary(context);
 
-            // Donut Chart - Distribusi per Kategori
-            if (categoryData.isNotEmpty) ...[
-              _buildSection(
-                icon: Icons.pie_chart,
-                title: 'Distribusi per Kategori',
-                color: Colors.purple,
-                children: [
-                  CategoryDonutChart(
-                    categoryData: categoryData,
-                    title: title,
-                    primaryColor: color,
-                  ),
-                ],
-              ),
-              const Divider(height: 32),
-            ],
-
-            // Rata-rata & Info Penting
-            _buildSection(
-              icon: Icons.account_balance_wallet,
-              title: 'Info Penting',
-              color: Colors.blue,
-              children: [
-                _buildHighlightRow(
-                  'Rata-rata per Transaksi',
-                  _money(stats.mean),
-                  color,
-                ),
-                const SizedBox(height: 8),
-                _buildHighlightRow(
-                  'Paling Sering',
-                  _money(stats.median),
-                  color.withOpacity(0.7),
-                ),
-                const SizedBox(height: 8),
-                _buildHighlightRow(
-                  'Terkecil - Terbesar',
-                  '${_money(stats.min)} - ${_money(stats.max)}',
-                  AppTheme.textSecondary,
-                ),
-              ],
-            ),
-
-            const Divider(height: 32),
-
-            // Pola Keuangan dengan insight otomatis
-            _buildSection(
-              icon: Icons.insights,
-              title: 'Pola Keuanganmu',
-              color: Colors.orange,
-              children: [_buildSpendingPattern(stats)],
-            ),
-
-            const Divider(height: 32),
-
-            // Deteksi Transaksi Tidak Biasa
-            _buildSection(
-              icon: Icons.warning_amber_outlined,
-              title: 'Transaksi Tidak Biasa',
-              color: Colors.red,
-              children: [_buildAnomalyDetection(stats)],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildHighlightRow(String label, String value, Color color) {
-    return Container(
-      width: double.infinity, // Full width
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
-              color: color,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w700,
-              color: color,
-            ),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSection({
-    required IconData icon,
-    required String title,
-    required Color color,
-    required List<Widget> children,
-  }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [color, color.withOpacity(0.7)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(10),
-                boxShadow: [
-                  BoxShadow(
-                    color: color.withOpacity(0.3),
-                    blurRadius: 8,
-                    offset: const Offset(0, 3),
-                  ),
-                ],
-              ),
-              child: Icon(icon, color: Colors.white, size: 20),
-            ),
-            const SizedBox(width: 12),
-            Text(
-              title,
-              style: TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w700,
-                color: color,
-              ),
-            ),
-          ],
+        EditorialSectionHeader(
+          eyebrow: eyebrow,
+          title: title,
         ),
-        const SizedBox(height: 12),
-        ...children,
+        Padding(
+          padding: const EdgeInsets.fromLTRB(
+            AppTheme.pageGutter,
+            0,
+            AppTheme.pageGutter,
+            AppTheme.space16,
+          ),
+          child: Text(
+            'Total ${stats.data.length} transaksi pada periode ini.',
+            style: GoogleFonts.inter(
+              fontSize: 12,
+              color: secondary,
+            ),
+          ),
+        ),
+
+        // Donut Chart
+        if (categoryData.isNotEmpty) ...[
+          const Hairline(),
+          Padding(
+            padding: const EdgeInsets.all(AppTheme.space24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Eyebrow('DISTRIBUSI', color: secondary),
+                const SizedBox(height: AppTheme.space16),
+                CategoryDonutChart(
+                  categoryData: categoryData,
+                  title: title,
+                  primaryColor: color,
+                ),
+              ],
+            ),
+          ),
+        ],
+
+        // Key stats
+        _EditorialStatRow(
+          eyebrow: 'RATA-RATA',
+          value: _money(stats.mean),
+          caption: 'Per transaksi',
+        ),
+        _EditorialStatRow(
+          eyebrow: 'MEDIAN',
+          value: _money(stats.median),
+          caption: 'Paling sering muncul',
+        ),
+        _EditorialStatRow(
+          eyebrow: 'RENTANG',
+          value: '${_money(stats.min)} – ${_money(stats.max)}',
+          caption: 'Terkecil sampai terbesar',
+        ),
+
+        // Pattern
+        _buildEditorialPattern(stats, color, ink, secondary),
+
+        // Anomaly
+        _buildEditorialAnomaly(stats, ink, secondary),
+
+        const SizedBox(height: AppTheme.space24),
       ],
     );
   }
 
-  Widget _buildSpendingPattern(DescriptiveStatistics stats) {
-    String pattern = '';
-    String icon = '';
-    Color patternColor = AppTheme.textSecondary;
-    String explanation = '';
+  Widget _buildEditorialPattern(
+    DescriptiveStatistics stats,
+    Color accentColor,
+    Color ink,
+    Color secondary,
+  ) {
+    String pattern;
+    String explanation;
+    final isDark = ThemeUtils.isDarkMode(context);
+    Color patternColor;
 
-    // Analisis berdasarkan skewness
     if (stats.skewness.abs() < 0.5) {
       pattern = 'Stabil';
-      icon = '✅';
-      patternColor = Colors.green;
-      explanation = 'Pengeluaranmu merata, tidak ada yang ekstrem';
+      patternColor = isDark ? AppTheme.darkIncomeColor : AppTheme.incomeColor;
+      explanation = 'Pengeluaranmu merata, tidak ada yang ekstrem.';
     } else if (stats.skewness < -0.5) {
       pattern = 'Boros';
-      icon = '⚠️';
-      patternColor = Colors.orange;
-      explanation = 'Sering keluar uang banyak, coba lebih hemat';
+      patternColor = isDark ? AppTheme.darkExpenseColor : AppTheme.expenseColor;
+      explanation = 'Sering keluar uang banyak, coba lebih hemat.';
     } else {
       pattern = 'Normal';
-      icon = '�';
-      patternColor = Colors.blue;
-      explanation = 'Biasanya kecil-kecil, kadang ada yang besar';
+      patternColor = ThemeUtils.getPrimaryColor(context);
+      explanation = 'Biasanya kecil-kecil, kadang ada yang besar.';
     }
 
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: patternColor.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: patternColor.withOpacity(0.3)),
-      ),
-      child: Row(
-        children: [
-          Text(icon, style: const TextStyle(fontSize: 32)),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  pattern,
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                    color: patternColor,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  explanation,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    color: AppTheme.textSecondary,
-                    height: 1.3,
-                  ),
-                ),
-              ],
-            ),
+    return Column(
+      children: [
+        const Hairline(),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(
+            AppTheme.pageGutter,
+            AppTheme.space20,
+            AppTheme.pageGutter,
+            AppTheme.space20,
           ),
-        ],
-      ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  AccentBar(width: 24, height: 2, color: patternColor),
+                  const SizedBox(width: AppTheme.space8),
+                  Eyebrow('POLA', color: secondary),
+                ],
+              ),
+              const SizedBox(height: AppTheme.space12),
+              Text(
+                pattern,
+                style: GoogleFonts.spaceGrotesk(
+                  fontSize: 28,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: -0.5,
+                  color: patternColor,
+                ),
+              ),
+              const SizedBox(height: AppTheme.space8),
+              Text(
+                explanation,
+                style: GoogleFonts.inter(
+                  fontSize: 13,
+                  height: 1.6,
+                  color: secondary,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
-  Widget _buildAnomalyDetection(DescriptiveStatistics stats) {
+  Widget _buildEditorialAnomaly(
+    DescriptiveStatistics stats,
+    Color ink,
+    Color secondary,
+  ) {
     final normalCount = stats.zScores.where((z) => z.abs() < 2).length;
     final abnormalCount = stats.data.length - normalCount;
     final abnormalPercentage = stats.data.length > 0
         ? (abnormalCount / stats.data.length * 100)
         : 0.0;
-
+    final isDark = ThemeUtils.isDarkMode(context);
     Color statusColor;
     String statusText;
-    IconData statusIcon;
 
     if (abnormalPercentage < 5) {
-      statusColor = Colors.green;
+      statusColor = isDark ? AppTheme.darkIncomeColor : AppTheme.incomeColor;
       statusText = 'Aman';
-      statusIcon = Icons.check_circle;
     } else if (abnormalPercentage < 15) {
-      statusColor = Colors.blue;
-      statusText = 'Cukup Baik';
-      statusIcon = Icons.info;
+      statusColor = ThemeUtils.getPrimaryColor(context);
+      statusText = 'Cukup baik';
     } else if (abnormalPercentage < 25) {
-      statusColor = Colors.orange;
-      statusText = 'Perlu Hati-hati';
-      statusIcon = Icons.warning_amber;
+      statusColor = isDark ? AppTheme.darkExpenseColor : AppTheme.expenseColor;
+      statusText = 'Perlu hati-hati';
     } else {
-      statusColor = Colors.red;
+      statusColor = isDark ? AppTheme.darkExpenseColor : AppTheme.expenseColor;
       statusText = 'Waspada';
-      statusIcon = Icons.error_outline;
     }
 
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: statusColor.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: statusColor.withOpacity(0.3)),
-      ),
-      child: Column(
-        children: [
-          Row(
+    return Column(
+      children: [
+        const Hairline(),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(
+            AppTheme.pageGutter,
+            AppTheme.space20,
+            AppTheme.pageGutter,
+            AppTheme.space20,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(statusIcon, color: statusColor, size: 32),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      statusText,
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w700,
-                        color: statusColor,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '$abnormalCount dari ${stats.data.length} transaksi tidak wajar',
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: AppTheme.textSecondary,
-                      ),
-                    ),
-                  ],
+              Row(
+                children: [
+                  AccentBar(width: 24, height: 2, color: statusColor),
+                  const SizedBox(width: AppTheme.space8),
+                  Eyebrow('ANOMALI', color: secondary),
+                ],
+              ),
+              const SizedBox(height: AppTheme.space12),
+              Text(
+                statusText,
+                style: GoogleFonts.spaceGrotesk(
+                  fontSize: 28,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: -0.5,
+                  color: statusColor,
                 ),
               ),
+              const SizedBox(height: AppTheme.space8),
+              Text(
+                '$abnormalCount dari ${stats.data.length} transaksi tidak wajar.',
+                style: GoogleFonts.inter(
+                  fontSize: 13,
+                  height: 1.6,
+                  color: secondary,
+                ),
+              ),
+              if (stats.outliers.isNotEmpty) ...[
+                const SizedBox(height: AppTheme.space16),
+                Eyebrow(
+                  '${stats.outliers.length} TRANSAKSI ANEH',
+                  color: secondary,
+                  size: 10,
+                ),
+                const SizedBox(height: AppTheme.space8),
+                Wrap(
+                  spacing: AppTheme.space8,
+                  runSpacing: AppTheme.space8,
+                  children: stats.outliers.take(5).map((outlier) {
+                    return Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppTheme.space8,
+                        vertical: AppTheme.space4,
+                      ),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: statusColor, width: 1),
+                      ),
+                      child: Text(
+                        _money(outlier),
+                        style: GoogleFonts.inter(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: statusColor,
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+                if (stats.outliers.length > 5) ...[
+                  const SizedBox(height: AppTheme.space8),
+                  Text(
+                    '… dan ${stats.outliers.length - 5} lainnya',
+                    style: GoogleFonts.inter(
+                      fontSize: 11,
+                      color: secondary,
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                ],
+              ],
             ],
           ),
-
-          if (stats.outliers.isNotEmpty) ...[
-            const SizedBox(height: 16),
-            const Divider(),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                const Icon(Icons.warning_amber, color: Colors.orange, size: 18),
-                const SizedBox(width: 8),
-                Text(
-                  'Transaksi Aneh: ${stats.outliers.length}',
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 13,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 6,
-              runSpacing: 4,
-              children: stats.outliers.take(5).map((outlier) {
-                return Chip(
-                  label: Text(
-                    _money(outlier),
-                    style: const TextStyle(fontSize: 11),
-                  ),
-                  backgroundColor: Colors.orange.withOpacity(0.2),
-                  padding: EdgeInsets.zero,
-                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                );
-              }).toList(),
-            ),
-            if (stats.outliers.length > 5)
-              Padding(
-                padding: const EdgeInsets.only(top: 4),
-                child: Text(
-                  '... dan ${stats.outliers.length - 5} lainnya',
-                  style: const TextStyle(
-                    fontSize: 11,
-                    fontStyle: FontStyle.italic,
-                    color: AppTheme.textSecondary,
-                  ),
-                ),
-              ),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-// Period Selector Widget
-class _PeriodSelector extends StatelessWidget {
-  final String selected;
-  final Function(String) onChanged;
-
-  const _PeriodSelector({required this.selected, required this.onChanged});
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(AppTheme.space12),
-        child: Row(
-          children: [
-            Expanded(
-              child: _PeriodButton(
-                label: 'Bulan',
-                value: 'month',
-                selected: selected == 'month',
-                onTap: () => onChanged('month'),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: _PeriodButton(
-                label: 'Kuartal',
-                value: 'quarter',
-                selected: selected == 'quarter',
-                onTap: () => onChanged('quarter'),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: _PeriodButton(
-                label: 'Tahun',
-                value: 'year',
-                selected: selected == 'year',
-                onTap: () => onChanged('year'),
-              ),
-            ),
-          ],
         ),
-      ),
+      ],
     );
   }
 }
 
-class _PeriodButton extends StatelessWidget {
-  final String label;
-  final String value;
-  final bool selected;
-  final VoidCallback onTap;
+/// Editorial segmented underline tabs for the statistics page header.
+class _StatTabs extends StatelessWidget {
+  final TabController controller;
+  final List<String> labels;
+  final Color ink;
+  final Color secondary;
+  final Color accent;
 
-  const _PeriodButton({
-    required this.label,
-    required this.value,
-    required this.selected,
-    required this.onTap,
+  const _StatTabs({
+    required this.controller,
+    required this.labels,
+    required this.ink,
+    required this.secondary,
+    required this.accent,
   });
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        decoration: BoxDecoration(
-          color: selected
-              ? AppTheme.primaryColor
-              : AppTheme.primaryColor.withOpacity(0.05),
-          borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-        ),
-        child: Text(
-          label,
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            color: selected ? Colors.white : AppTheme.primaryColor,
-            fontWeight: FontWeight.w600,
-            fontSize: 14,
-          ),
-        ),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: AppTheme.pageGutter),
+      child: AnimatedBuilder(
+        animation: controller,
+        builder: (context, _) {
+          return Row(
+            children: [
+              for (int i = 0; i < labels.length; i++)
+                Expanded(
+                  child: InkWell(
+                    onTap: () => controller.animateTo(i),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        vertical: AppTheme.space12,
+                      ),
+                      child: Column(
+                        children: [
+                          Text(
+                            labels[i],
+                            textAlign: TextAlign.center,
+                            style: GoogleFonts.inter(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: 1.6,
+                              color: controller.index == i ? ink : secondary,
+                            ),
+                          ),
+                          const SizedBox(height: AppTheme.space8),
+                          Container(
+                            height: 2,
+                            color: controller.index == i
+                                ? ThemeUtils.getAccentGreen(context)
+                                : Colors.transparent,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          );
+        },
       ),
     );
   }
 }
 
-// Summary Cards
-class _SummaryCards extends StatelessWidget {
+/// Editorial period selector — segmented underline tabs.
+class _EditorialPeriodSelector extends StatelessWidget {
+  final String selected;
+  final Function(String) onChanged;
+
+  const _EditorialPeriodSelector({
+    required this.selected,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final ink = ThemeUtils.getTextPrimary(context);
+    final secondary = ThemeUtils.getTextSecondary(context);
+    final green = ThemeUtils.getAccentGreen(context);
+
+    Widget tab(String label, String value) {
+      final isSelected = selected == value;
+      return Expanded(
+        child: InkWell(
+          onTap: () => onChanged(value),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: AppTheme.space12),
+            child: Column(
+              children: [
+                Text(
+                  label,
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.inter(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 1.6,
+                    color: isSelected ? ink : secondary,
+                  ),
+                ),
+                const SizedBox(height: AppTheme.space8),
+                Container(
+                  height: 2,
+                  color: isSelected ? green : Colors.transparent,
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Column(
+      children: [
+        const Hairline(),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: AppTheme.pageGutter),
+          child: Row(
+            children: [
+              tab('BULAN', 'month'),
+              tab('KUARTAL', 'quarter'),
+              tab('TAHUN', 'year'),
+            ],
+          ),
+        ),
+        const Hairline(),
+      ],
+    );
+  }
+}
+
+/// Income / expense / net displayed editorial-style — full-width rows so
+/// large numbers (millions, billions) never overflow.
+class _EditorialSummaryStats extends StatelessWidget {
   final num income;
   final num expense;
   final num net;
   final String Function(num) money;
 
-  const _SummaryCards({
+  const _EditorialSummaryStats({
     required this.income,
     required this.expense,
     required this.net,
@@ -874,163 +752,151 @@ class _SummaryCards extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final incomeColor = ThemeUtils.getIncomeColor(context);
+    final expenseColor = ThemeUtils.getExpenseColor(context);
+    final netColor = net >= 0 ? incomeColor : expenseColor;
+    final secondary = ThemeUtils.getTextSecondary(context);
+    final hairline = ThemeUtils.isDarkMode(context)
+        ? AppTheme.darkHairlineColor
+        : AppTheme.hairlineColor;
+
     return Column(
       children: [
-        _StatCard(
-          label: 'Total Pemasukan',
-          amount: income,
-          money: money,
-          color: AppTheme.incomeColor,
-          icon: Icons.arrow_upward,
+        _SummaryRow(
+          label: 'PEMASUKAN',
+          value: money(income),
+          color: incomeColor,
+          secondary: secondary,
+          hairline: hairline,
         ),
-        const SizedBox(height: 12),
-        _StatCard(
-          label: 'Total Pengeluaran',
-          amount: expense,
-          money: money,
-          color: AppTheme.expenseColor,
-          icon: Icons.arrow_downward,
+        _SummaryRow(
+          label: 'PENGELUARAN',
+          value: money(expense),
+          color: expenseColor,
+          secondary: secondary,
+          hairline: hairline,
         ),
-        const SizedBox(height: 12),
-        _StatCard(
-          label: 'Sisa Saldo',
-          amount: net,
-          money: money,
-          color: net >= 0 ? AppTheme.incomeColor : AppTheme.expenseColor,
-          icon: Icons.account_balance_wallet,
+        _SummaryRow(
+          label: 'SISA',
+          value: money(net),
+          color: netColor,
+          secondary: secondary,
+          hairline: hairline,
+          isNet: true,
         ),
       ],
     );
   }
 }
 
-class _StatCard extends StatelessWidget {
+class _SummaryRow extends StatelessWidget {
   final String label;
-  final num amount;
-  final String Function(num) money;
+  final String value;
   final Color color;
-  final IconData icon;
+  final Color secondary;
+  final Color hairline;
+  final bool isNet;
 
-  const _StatCard({
+  const _SummaryRow({
     required this.label,
-    required this.amount,
-    required this.money,
+    required this.value,
     required this.color,
-    required this.icon,
+    required this.secondary,
+    required this.hairline,
+    this.isNet = false,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(AppTheme.space16),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [color, color.withOpacity(0.7)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-                boxShadow: [
-                  BoxShadow(
-                    color: color.withOpacity(0.3),
-                    blurRadius: 8,
-                    offset: const Offset(0, 3),
-                  ),
-                ],
-              ),
-              child: Icon(icon, color: Colors.white, size: 28),
-            ),
-            const SizedBox(width: AppTheme.space16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    label,
-                    style: const TextStyle(
-                      fontSize: 13,
-                      color: AppTheme.textSecondary,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    money(amount),
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w700,
-                      color: color,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
+    return Container(
+      decoration: BoxDecoration(
+        border: Border(
+          bottom: BorderSide(color: hairline, width: AppTheme.hairlineWidth),
         ),
+      ),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppTheme.pageGutter,
+        vertical: AppTheme.space16,
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          SizedBox(
+            width: 108,
+            child: Text(
+              label,
+              style: GoogleFonts.inter(
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 1.4,
+                color: secondary,
+              ),
+            ),
+          ),
+          Expanded(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerRight,
+              child: Text(
+                value,
+                style: GoogleFonts.spaceGrotesk(
+                  fontSize: isNet ? 26 : 22,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: -0.5,
+                  color: color,
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
 }
 
-// Spending by Category Chart
-class _SpendingByCategoryCard extends StatelessWidget {
+/// Editorial section showing top-5 spending categories with hairline rows
+/// and a slim accent bar visualization.
+class _EditorialCategorySection extends StatelessWidget {
   final List<Map<String, dynamic>> data;
   final String Function(num) money;
 
-  const _SpendingByCategoryCard({required this.data, required this.money});
+  const _EditorialCategorySection({required this.data, required this.money});
 
   @override
   Widget build(BuildContext context) {
     if (data.isEmpty) return const SizedBox.shrink();
-
     final total = data.fold<double>(
       0,
       (sum, item) => sum + ((item['total'] as num?)?.toDouble() ?? 0),
     );
 
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(AppTheme.space16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Pengeluaran per Kategori',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(height: AppTheme.space16),
-            // Pie-like horizontal bars
-            for (final item in data.take(5))
-              Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: _CategoryBar(
-                  category: item['category'] as String? ?? '-',
-                  emoji: item['emoji'] as String? ?? '💰',
-                  amount: (item['total'] as num?)?.toDouble() ?? 0,
-                  total: total,
-                  money: money,
-                ),
-              ),
-          ],
+    return Column(
+      children: [
+        EditorialSectionHeader(
+          eyebrow: 'KATEGORI',
+          title: '${data.length} entri',
         ),
-      ),
+        for (final item in data.take(5))
+          _CategoryEditorialRow(
+            category: item['category'] as String? ?? '-',
+            emoji: item['emoji'] as String? ?? '💰',
+            amount: (item['total'] as num?)?.toDouble() ?? 0,
+            total: total,
+            money: money,
+          ),
+      ],
     );
   }
 }
 
-class _CategoryBar extends StatelessWidget {
+class _CategoryEditorialRow extends StatelessWidget {
   final String category;
   final String emoji;
   final double amount;
   final double total;
   final String Function(num) money;
 
-  const _CategoryBar({
+  const _CategoryEditorialRow({
     required this.category,
     required this.emoji,
     required this.amount,
@@ -1040,240 +906,218 @@ class _CategoryBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final ink = ThemeUtils.getTextPrimary(context);
+    final secondary = ThemeUtils.getTextSecondary(context);
+    final accent = ThemeUtils.getPrimaryColor(context);
+    final isDark = ThemeUtils.isDarkMode(context);
+    final hairline =
+        isDark ? AppTheme.darkHairlineColor : AppTheme.hairlineColor;
     final percentage = total > 0 ? (amount / total * 100) : 0.0;
 
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Row(
-              children: [
-                Text(emoji, style: const TextStyle(fontSize: 18)),
-                const SizedBox(width: 8),
-                Text(
-                  category,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
+        const Hairline(),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(
+            AppTheme.pageGutter,
+            AppTheme.space20,
+            AppTheme.pageGutter,
+            AppTheme.space20,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Text(emoji, style: const TextStyle(fontSize: 22)),
+                  const SizedBox(width: AppTheme.space12),
+                  Expanded(
+                    child: Text(
+                      category,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.spaceGrotesk(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: -0.2,
+                        color: ink,
+                      ),
+                    ),
                   ),
-                ),
-              ],
-            ),
-            Text(
-              money(amount),
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: AppTheme.textSecondary,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 6),
-        Row(
-          children: [
-            Expanded(
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(4),
-                child: LinearProgressIndicator(
-                  value: percentage / 100,
-                  minHeight: 8,
-                  backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
-                  valueColor: const AlwaysStoppedAnimation<Color>(
-                    AppTheme.primaryColor,
+                  Text(
+                    money(amount),
+                    style: GoogleFonts.spaceGrotesk(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: -0.2,
+                      color: ink,
+                    ),
                   ),
-                ),
+                ],
               ),
-            ),
-            const SizedBox(width: 8),
-            Text(
-              '${percentage.toStringAsFixed(1)}%',
-              style: const TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: AppTheme.textSecondary,
+              const SizedBox(height: AppTheme.space12),
+              Row(
+                children: [
+                  Expanded(
+                    child: Container(
+                      height: 2,
+                      color: hairline,
+                      child: FractionallySizedBox(
+                        alignment: Alignment.centerLeft,
+                        widthFactor: (percentage / 100).clamp(0.0, 1.0),
+                        child: Container(color: accent),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: AppTheme.space12),
+                  Text(
+                    '${percentage.toStringAsFixed(1)}%',
+                    style: GoogleFonts.inter(
+                      fontSize: 12,
+                      color: secondary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ],
     );
   }
 }
 
-// Top Categories Card
-class _TopCategoriesCard extends StatelessWidget {
-  final List<Map<String, dynamic>> data;
-  final String Function(num) money;
-
-  const _TopCategoriesCard({required this.data, required this.money});
-
-  @override
-  Widget build(BuildContext context) {
-    if (data.isEmpty) return const SizedBox.shrink();
-
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(AppTheme.space16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Kategori Teratas',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(height: AppTheme.space12),
-            for (int i = 0; i < data.take(3).length; i++)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 32,
-                      height: 32,
-                      decoration: BoxDecoration(
-                        color: AppTheme.primaryColor.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Center(
-                        child: Text(
-                          '${i + 1}',
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w700,
-                            color: AppTheme.primaryColor,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Text(
-                      data[i]['emoji'] as String? ?? '💰',
-                      style: const TextStyle(fontSize: 24),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        data[i]['category'] as String? ?? '-',
-                        style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                    Text(
-                      money((data[i]['total'] as num?) ?? 0),
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                        color: AppTheme.expenseColor,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// Transaction Count Card
-class _TransactionCountCard extends StatelessWidget {
+/// Two-column editorial transaction count.
+class _EditorialTransactionCount extends StatelessWidget {
   final int incomeCount;
   final int expenseCount;
 
-  const _TransactionCountCard({
+  const _EditorialTransactionCount({
     required this.incomeCount,
     required this.expenseCount,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(AppTheme.space16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Jumlah Transaksi',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(height: AppTheme.space16),
-            Row(
+    final incomeColor = ThemeUtils.getIncomeColor(context);
+    final expenseColor = ThemeUtils.getExpenseColor(context);
+
+    return Column(
+      children: [
+        const EditorialSectionHeader(
+          eyebrow: 'JUMLAH',
+          title: 'Transaksi',
+        ),
+        const Hairline(),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(
+            AppTheme.pageGutter,
+            AppTheme.space24,
+            AppTheme.pageGutter,
+            AppTheme.space24,
+          ),
+          child: IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Expanded(
-                  child: _CountItem(
-                    label: 'Pemasukan',
-                    count: incomeCount,
-                    color: AppTheme.incomeColor,
+                  child: EditorialStat(
+                    label: 'PEMASUKAN',
+                    value: incomeCount.toString(),
+                    caption: '$incomeCount transaksi',
+                    valueSize: 40,
+                    valueColor: incomeColor,
                   ),
                 ),
-                const SizedBox(width: 12),
+                const VerticalHairline(),
+                const SizedBox(width: AppTheme.space20),
                 Expanded(
-                  child: _CountItem(
-                    label: 'Pengeluaran',
-                    count: expenseCount,
-                    color: AppTheme.expenseColor,
+                  child: EditorialStat(
+                    label: 'PENGELUARAN',
+                    value: expenseCount.toString(),
+                    caption: '$expenseCount transaksi',
+                    valueSize: 40,
+                    valueColor: expenseColor,
+                    alignment: CrossAxisAlignment.end,
                   ),
                 ),
               ],
             ),
-          ],
+          ),
         ),
-      ),
+      ],
     );
   }
 }
 
-class _CountItem extends StatelessWidget {
-  final String label;
-  final int count;
-  final Color color;
+/// Editorial stat row: eyebrow + display value with caption + hairline.
+class _EditorialStatRow extends StatelessWidget {
+  final String eyebrow;
+  final String value;
+  final String? caption;
 
-  const _CountItem({
-    required this.label,
-    required this.count,
-    required this.color,
+  const _EditorialStatRow({
+    required this.eyebrow,
+    required this.value,
+    this.caption,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(AppTheme.space16),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-      ),
-      child: Column(
-        children: [
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
-              color: color,
-            ),
+    final ink = ThemeUtils.getTextPrimary(context);
+    final secondary = ThemeUtils.getTextSecondary(context);
+
+    return Column(
+      children: [
+        const Hairline(),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(
+            AppTheme.pageGutter,
+            AppTheme.space20,
+            AppTheme.pageGutter,
+            AppTheme.space20,
           ),
-          const SizedBox(height: 8),
-          Text(
-            count.toString(),
-            style: TextStyle(
-              fontSize: 32,
-              fontWeight: FontWeight.w700,
-              color: color,
-            ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                flex: 2,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Eyebrow(eyebrow, color: secondary),
+                    if (caption != null) ...[
+                      const SizedBox(height: AppTheme.space4),
+                      Text(
+                        caption!,
+                        style: GoogleFonts.inter(
+                          fontSize: 12,
+                          color: secondary,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(width: AppTheme.space12),
+              Expanded(
+                flex: 3,
+                child: Text(
+                  value,
+                  textAlign: TextAlign.right,
+                  style: GoogleFonts.spaceGrotesk(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: -0.3,
+                    color: ink,
+                  ),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 4),
-          Text(
-            'transaksi',
-            style: TextStyle(fontSize: 11, color: color.withOpacity(0.7)),
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }

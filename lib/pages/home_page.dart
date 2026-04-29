@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+
 import '../widgets/main_navigation_scaffold.dart';
 import 'dashboard_page.dart';
 import 'statistics_page.dart';
@@ -7,8 +8,8 @@ import 'add_transaction_page.dart';
 import 'budgets_page.dart';
 import 'profile_page.dart';
 
-/// Home page with bottom navigation
-/// Routes: Dashboard, Statistics, Add Transaction, Budgets, Profile
+/// Editorial home shell — no global AppBar; each page renders its own
+/// magazine-style header. Bottom navigation stays consistent.
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
 
@@ -20,50 +21,58 @@ class _HomePageState extends State<HomePage> {
   int _currentIndex = 0;
   DateTime? _lastBackPressed;
 
-  // Pages for each navigation destination
-  final List<Widget> _pages = const [
-    DashboardPage(),
-    StatisticsPage(),
-    AddTransactionPage(),
-    BudgetsPage(),
-    ProfilePage(),
-  ];
+  // Each element is a generation counter; incrementing forces the page to rebuild
+  final List<int> _pageKeys = [0, 0, 0, 0, 0];
 
-  // AppBar titles for each page
-  final List<String> _titles = const [
-    'Dashboard',
-    'Statistik',
-    'Tambah Transaksi',
-    'Budgeting',
-    'Profil',
+  static final List<Widget Function(Key)> _builders = [
+    (k) => DashboardPage(key: k),
+    (k) => StatisticsPage(key: k),
+    (k) => AddTransactionPage(key: k),
+    (k) => BudgetsPage(key: k),
+    (k) => ProfilePage(key: k),
   ];
 
   void _onNavigationChanged(int index) {
+    if (index == 2) {
+      _showAddTransaction();
+      return;
+    }
     setState(() {
+      if (index != _currentIndex) {
+        _pageKeys[index]++;
+      }
       _currentIndex = index;
     });
   }
 
-  // Get appropriate actions for current page
-  List<Widget>? _getAppBarActions() {
-    return null;
+  Future<void> _showAddTransaction() async {
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: false,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.only(
+          top: 60,
+          bottom: MediaQuery.of(ctx).viewInsets.bottom,
+        ),
+        child: AddTransactionPage(isModal: true),
+      ),
+    );
+    // Refresh the current page after modal closes
+    if (mounted) setState(() => _pageKeys[_currentIndex]++);
   }
 
   Future<bool> _onWillPop() async {
-    // If not on dashboard, go back to dashboard
     if (_currentIndex != 0) {
-      setState(() {
-        _currentIndex = 0;
-      });
+      setState(() => _currentIndex = 0);
       return false;
     }
 
-    // If on dashboard, show exit confirmation with double back press
     final now = DateTime.now();
     if (_lastBackPressed == null ||
         now.difference(_lastBackPressed!) > const Duration(seconds: 2)) {
       _lastBackPressed = now;
-
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Tekan sekali lagi untuk keluar'),
@@ -74,7 +83,6 @@ class _HomePageState extends State<HomePage> {
       return false;
     }
 
-    // Exit app
     SystemNavigator.pop();
     return true;
   }
@@ -86,20 +94,13 @@ class _HomePageState extends State<HomePage> {
       child: MainNavigationScaffold(
         currentIndex: _currentIndex,
         onNavigationChanged: _onNavigationChanged,
-        floatingActionButton: null, // Modern pages have their own FAB
-        child: Scaffold(
-          appBar:
-              (_currentIndex == 1 ||
-                  _currentIndex == 2 ||
-                  _currentIndex == 3 ||
-                  _currentIndex == 4)
-              ? null
-              : AppBar(
-                  // Modern pages have no AppBar
-                  title: Text(_titles[_currentIndex]),
-                  actions: _getAppBarActions(),
-                ),
-          body: _pages[_currentIndex],
+        floatingActionButton: null,
+        child: SafeArea(
+          top: true,
+          bottom: false,
+          child: _builders[_currentIndex](
+            ValueKey('page-$_currentIndex-${_pageKeys[_currentIndex]}'),
+          ),
         ),
       ),
     );

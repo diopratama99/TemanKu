@@ -1,12 +1,12 @@
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../data/app_database.dart';
-import '../state/auth_notifier.dart';
 import '../theme/app_theme.dart';
+import '../utils/theme_utils.dart';
+import '../widgets/editorial.dart';
 import '../widgets/state_widgets.dart';
 
 class BudgetsPage extends StatefulWidget {
@@ -32,34 +32,21 @@ class _BudgetsPageState extends State<BudgetsPage> {
 
   Future<void> _load() async {
     setState(() => _loading = true);
-    final db = context.read<AppDatabase>();
-    final userId = context.read<AuthNotifier>().user!['id'] as int;
-    final rows = await db.db.rawQuery(
-      '''
-      SELECT b.id, c.name AS category, c.emoji AS emoji, b.category_id, b.amount,
-             COALESCE( (SELECT SUM(amount) FROM transactions
-                        WHERE user_id=b.user_id AND type='expense' AND category_id=b.category_id
-                          AND substr(date,1,7)=b.month), 0) AS spent
-      FROM budgets b
-      JOIN categories c ON c.id=b.category_id
-      WHERE b.user_id=? AND b.month=?
-      ORDER BY c.name
-    ''',
-      [userId, _month],
-    );
-
-    final cats = await db.db.query(
-      'categories',
-      where: 'user_id=? AND type=?',
-      whereArgs: [userId, 'expense'],
-      orderBy: 'name',
-    );
-
-    setState(() {
-      _rows = rows;
-      _expCats = cats;
-      _loading = false;
-    });
+    try {
+      final db = context.read<AppDatabase>();
+      final rows = await db.getBudgetsWithSpent(_month);
+      final cats = await db.getCategories('expense');
+      if (!mounted) return;
+      setState(() {
+        _rows = rows;
+        _expCats = cats;
+        _loading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _loading = false);
+      showErrorSnackbar(context, 'Gagal memuat budget: $e');
+    }
   }
 
   String _money(num v) => NumberFormat.currency(
@@ -72,234 +59,225 @@ class _BudgetsPageState extends State<BudgetsPage> {
   Widget build(BuildContext context) {
     final date = DateTime.parse('$_month-01');
     final monthName = DateFormat('MMMM yyyy', 'id_ID').format(date);
+    final paper = ThemeUtils.getBackgroundColor(context);
 
     return Scaffold(
-      backgroundColor: AppTheme.backgroundColor,
-      appBar: AppBar(
-        backgroundColor: AppTheme.primaryColor,
-        foregroundColor: Colors.white,
-        elevation: 0,
-        title: const Text(
-          'Budgeting',
-          style: TextStyle(fontWeight: FontWeight.w700),
-        ),
-        centerTitle: true,
-      ),
-      body: _loading
-          ? const LoadingStateWidget(message: 'Memuat budgeting...')
-          : Column(
-              children: [
-                // Month Selector Header
-                Container(
-                  margin: const EdgeInsets.all(AppTheme.space16),
-                  padding: const EdgeInsets.all(AppTheme.space16),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        AppTheme.primaryColor.withOpacity(0.1),
-                        AppTheme.primaryColor.withOpacity(0.05),
-                      ],
-                    ),
-                    borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
-                    border: Border.all(
-                      color: AppTheme.primaryColor.withOpacity(0.2),
-                      width: 1,
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(
-                        Icons.calendar_month,
-                        color: AppTheme.primaryColor,
-                        size: 28,
-                      ),
-                      const SizedBox(width: AppTheme.space12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Periode Budget',
-                              style: Theme.of(context).textTheme.bodySmall
-                                  ?.copyWith(
-                                    color: AppTheme.textSecondary,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              monthName,
-                              style: Theme.of(context).textTheme.titleLarge
-                                  ?.copyWith(
-                                    fontWeight: FontWeight.w700,
-                                    color: AppTheme.primaryColor,
-                                  ),
-                            ),
-                          ],
+      backgroundColor: paper,
+      body: SafeArea(
+        child: _loading
+            ? const LoadingStateWidget(message: 'Memuat budgeting...')
+            : Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  EditorialHeader(
+                    eyebrow: 'BUDGET',
+                    title: 'Anggaran.',
+                    metaEyebrow: 'PERIODE',
+                    meta: monthName,
+                    titleSize: 36,
+                    trailing: TextButton(
+                      onPressed: _selectMonth,
+                      child: Text(
+                        'UBAH',
+                        style: GoogleFonts.inter(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 1.6,
+                          color: ThemeUtils.getPrimaryColor(context),
                         ),
                       ),
-                      FilledButton.icon(
-                        onPressed: _selectMonth,
-                        icon: const Icon(Icons.edit_calendar, size: 18),
-                        label: const Text('Ubah'),
-                        style: FilledButton.styleFrom(
-                          backgroundColor: AppTheme.primaryColor,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: AppTheme.space16,
-                            vertical: AppTheme.space8,
+                    ),
+                  ),
+                  if (_rows.isNotEmpty) _buildEditorialSummary(),
+                  Expanded(
+                    child: _rows.isEmpty
+                        ? EmptyStateWidget(
+                            icon: Icons.pie_chart_outline,
+                            title: 'Belum ada budget',
+                            description:
+                                'Atur budget pengeluaranmu untuk kontrol keuangan yang lebih baik.',
+                            actionLabel: 'Tambah Budget',
+                            onAction: _showAddDialog,
+                          )
+                        : ListView.builder(
+                            padding: EdgeInsets.zero,
+                            itemCount: _rows.length + 1,
+                            itemBuilder: (context, i) {
+                              if (i == _rows.length) {
+                                return const SizedBox(height: AppTheme.space24);
+                              }
+                              final r = _rows[i];
+                              return _BudgetRow(
+                                budget: r,
+                                money: _money,
+                                onTap: () => _showEditDialog(r),
+                                onDelete: () => _deleteBudget(r),
+                              );
+                            },
                           ),
+                  ),
+                  // Bottom add bar
+                  if (_rows.length < 5) ...[
+                    const Hairline(),
+                    Material(
+                      color: paper,
+                      child: InkWell(
+                        onTap: _showAddDialog,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: AppTheme.pageGutter,
+                            vertical: AppTheme.space20,
+                          ),
+                          child: Row(
+                            children: [
+                              AccentBar(
+                                width: 24,
+                                height: 2,
+                                color: ThemeUtils.getPrimaryColor(context),
+                              ),
+                              const SizedBox(width: AppTheme.space8),
+                              Eyebrow('TAMBAH',
+                                  color: ThemeUtils.getTextSecondary(context)),
+                              const Spacer(),
+                              Text(
+                                'Budget kategori',
+                                style: GoogleFonts.spaceGrotesk(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                  color: ThemeUtils.getTextPrimary(context),
+                                  letterSpacing: -0.2,
+                                ),
+                              ),
+                              const SizedBox(width: AppTheme.space12),
+                              Icon(
+                                Icons.add,
+                                size: 20,
+                                color: ThemeUtils.getTextPrimary(context),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+      ),
+    );
+  }
+
+  Widget _buildEditorialSummary() {
+    double totalBudget = 0;
+    double totalSpent = 0;
+    for (final r in _rows) {
+      totalBudget += (r['amount'] as num).toDouble();
+      totalSpent += (r['spent'] as num).toDouble();
+    }
+    final percentage = totalBudget > 0 ? (totalSpent / totalBudget * 100) : 0.0;
+    final remaining = totalBudget - totalSpent;
+    final secondary = ThemeUtils.getTextSecondary(context);
+    final ink = ThemeUtils.getTextPrimary(context);
+    final accent = ThemeUtils.getPrimaryColor(context);
+    final isDark = ThemeUtils.isDarkMode(context);
+    final overBudget = percentage > 100;
+    final amountColor = overBudget
+        ? (isDark ? AppTheme.darkExpenseColor : AppTheme.expenseColor)
+        : ink;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppTheme.pageGutter,
+        AppTheme.space24,
+        AppTheme.pageGutter,
+        AppTheme.space24,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Two-column row: Anggaran kiri, Terpakai kanan
+          IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Eyebrow('ANGGARAN', color: secondary),
+                      const SizedBox(height: AppTheme.space8),
+                      Text(
+                        _money(totalBudget),
+                        style: GoogleFonts.spaceGrotesk(
+                          fontSize: 28,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: -0.5,
+                          color: ink,
+                          height: 1.05,
                         ),
                       ),
                     ],
                   ),
                 ),
-
-                // Budget Summary Card
-                if (_rows.isNotEmpty) _buildSummaryCard(),
-
-                // Budgets List
+                const VerticalHairline(),
+                const SizedBox(width: AppTheme.space20),
                 Expanded(
-                  child: _rows.isEmpty
-                      ? EmptyStateWidget(
-                          icon: Icons.pie_chart_outline,
-                          title: 'Belum Ada Budget',
-                          description:
-                              'Atur budget pengeluaranmu untuk kontrol keuangan yang lebih baik',
-                          actionLabel: 'Tambah Budget',
-                          onAction: _showAddDialog,
-                        )
-                      : ListView.builder(
-                          padding: const EdgeInsets.only(
-                            left: AppTheme.space16,
-                            right: AppTheme.space16,
-                            top: AppTheme.space16,
-                            bottom: 80,
-                          ),
-                          itemCount: _rows.length,
-                          itemBuilder: (context, i) {
-                            final r = _rows[i];
-                            return _ModernBudgetCard(
-                              budget: r,
-                              onDelete: () => _deleteBudget(r),
-                              onEdit: () => _showEditDialog(r),
-                            );
-                          },
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Eyebrow('TERPAKAI', color: secondary),
+                      const SizedBox(height: AppTheme.space8),
+                      Text(
+                        _money(totalSpent),
+                        style: GoogleFonts.spaceGrotesk(
+                          fontSize: 28,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: -0.5,
+                          color: amountColor,
+                          height: 1.05,
                         ),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
-      floatingActionButton: _rows.length < 5
-          ? FloatingActionButton.extended(
-              onPressed: _showAddDialog,
-              icon: const Icon(Icons.add),
-              label: const Text('Tambah'),
-              backgroundColor: AppTheme.primaryColor,
-            )
-          : null,
-    );
-  }
-
-  Widget _buildSummaryCard() {
-    double totalBudget = 0;
-    double totalSpent = 0;
-
-    for (final r in _rows) {
-      totalBudget += (r['amount'] as num).toDouble();
-      totalSpent += (r['spent'] as num).toDouble();
-    }
-
-    final percentage = totalBudget > 0 ? (totalSpent / totalBudget * 100) : 0.0;
-    final remaining = totalBudget - totalSpent;
-
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: AppTheme.space16),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: AppTheme.surfaceColor,
-        borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
-        border: Border.all(color: Colors.grey.shade300),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
           ),
-        ],
-      ),
-      child: Column(
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Total Budget',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: AppTheme.textSecondary,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    _money(totalBudget),
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w700,
-                      color: AppTheme.primaryColor,
-                    ),
-                  ),
-                ],
-              ),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    'Terpakai',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: AppTheme.textSecondary,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    _money(totalSpent),
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w700,
-                      color: percentage > 100 ? Colors.red : Colors.orange,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-          const SizedBox(height: AppTheme.space16),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
-            child: LinearProgressIndicator(
-              value: (percentage / 100).clamp(0.0, 1.0),
-              minHeight: 8,
-              backgroundColor: Colors.grey.shade200,
-              valueColor: AlwaysStoppedAnimation<Color>(
-                percentage > 100 ? Colors.red : AppTheme.primaryColor,
+          const SizedBox(height: AppTheme.space20),
+          // Slim progress bar
+          Container(
+            height: 2,
+            decoration: BoxDecoration(
+              color: isDark
+                  ? AppTheme.darkHairlineColor
+                  : AppTheme.hairlineColor,
+            ),
+            child: FractionallySizedBox(
+              alignment: Alignment.centerLeft,
+              widthFactor: (percentage / 100).clamp(0.0, 1.0),
+              child: Container(
+                color: overBudget ? amountColor : accent,
               ),
             ),
           ),
-          const SizedBox(height: AppTheme.space8),
+          const SizedBox(height: AppTheme.space12),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
                 '${percentage.toStringAsFixed(1)}% terpakai',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: AppTheme.textSecondary,
-                  fontWeight: FontWeight.w600,
+                style: GoogleFonts.inter(
+                  fontSize: 12,
+                  color: secondary,
+                  fontWeight: FontWeight.w500,
                 ),
               ),
               Text(
                 remaining >= 0
                     ? 'Sisa ${_money(remaining)}'
                     : 'Lebih ${_money(remaining.abs())}',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: remaining >= 0 ? Colors.green : Colors.red,
+                style: GoogleFonts.inter(
+                  fontSize: 12,
+                  color: remaining >= 0 ? secondary : amountColor,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -346,11 +324,7 @@ class _BudgetsPageState extends State<BudgetsPage> {
     );
 
     if (confirm == true) {
-      await context.read<AppDatabase>().db.delete(
-        'budgets',
-        where: 'id=?',
-        whereArgs: [budget['id']],
-      );
+      await context.read<AppDatabase>().deleteBudget(budget['id'] as int);
       if (!mounted) return;
       showSuccessSnackbar(context, 'Tabungan berhasil dihapus');
       await _load();
@@ -423,7 +397,6 @@ class _BudgetsPageState extends State<BudgetsPage> {
             ),
             FilledButton(
               onPressed: () async {
-                final userId = context.read<AuthNotifier>().user!['id'] as int;
                 final amount = num.tryParse(
                   amountCtrl.text.replaceAll('.', '').replaceAll(',', '.'),
                 )?.toDouble();
@@ -441,8 +414,7 @@ class _BudgetsPageState extends State<BudgetsPage> {
                 }
 
                 try {
-                  await context.read<AppDatabase>().db.insert('budgets', {
-                    'user_id': userId,
+                  await context.read<AppDatabase>().insertBudget({
                     'category_id': selectedCatId,
                     'month': _month,
                     'amount': amount,
@@ -526,11 +498,9 @@ class _BudgetsPageState extends State<BudgetsPage> {
               }
 
               try {
-                await context.read<AppDatabase>().db.update(
-                  'budgets',
+                await context.read<AppDatabase>().updateBudget(
+                  budget['id'] as int,
                   {'amount': amount},
-                  where: 'id=?',
-                  whereArgs: [budget['id']],
                 );
                 if (!mounted) return;
                 Navigator.pop(context);
@@ -558,15 +528,17 @@ class _BudgetsPageState extends State<BudgetsPage> {
   }
 }
 
-class _ModernBudgetCard extends StatelessWidget {
+class _BudgetRow extends StatelessWidget {
   final Map<String, dynamic> budget;
+  final String Function(num) money;
+  final VoidCallback onTap;
   final VoidCallback onDelete;
-  final VoidCallback onEdit;
 
-  const _ModernBudgetCard({
+  const _BudgetRow({
     required this.budget,
+    required this.money,
+    required this.onTap,
     required this.onDelete,
-    required this.onEdit,
   });
 
   @override
@@ -575,248 +547,137 @@ class _ModernBudgetCard extends StatelessWidget {
     final spent = (budget['spent'] as num).toDouble();
     final percentage = amount > 0 ? (spent / amount * 100) : 0.0;
     final remaining = amount - spent;
-    final emoji = budget['emoji'] as String?;
+    final emoji = budget['emoji'] as String? ?? '📊';
+    final isOver = percentage > 100;
+    final ink = ThemeUtils.getTextPrimary(context);
+    final secondary = ThemeUtils.getTextSecondary(context);
+    final accent = ThemeUtils.getPrimaryColor(context);
+    final expense = ThemeUtils.getExpenseColor(context);
+    final isDark = ThemeUtils.isDarkMode(context);
+    final hairline = isDark ? AppTheme.darkHairlineColor : AppTheme.hairlineColor;
+    final amountColor = isOver ? expense : ink;
+    final progressColor = isOver ? expense : accent;
 
-    final isOverBudget = percentage > 100;
-    final color = isOverBudget
-        ? Colors.red
-        : percentage > 80
-        ? Colors.orange
-        : AppTheme.primaryColor;
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: AppTheme.space16),
-      decoration: BoxDecoration(
-        color: AppTheme.surfaceColor,
-        borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
-        border: Border.all(color: color.withOpacity(0.3), width: 1.5),
-        boxShadow: [
-          BoxShadow(
-            color: color.withOpacity(0.1),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: InkWell(
-        onTap: onEdit,
-        borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
-        child: Padding(
-          padding: const EdgeInsets.all(AppTheme.space16),
-          child: Row(
-            children: [
-              // Circular Progress
-              SizedBox(
-                width: 80,
-                height: 80,
-                child: Stack(
-                  children: [
-                    Center(
-                      child: SizedBox(
-                        width: 80,
-                        height: 80,
-                        child: CustomPaint(
-                          painter: _CircularProgressPainter(
-                            progress: (percentage / 100).clamp(0.0, 1.0),
-                            color: color,
-                            backgroundColor: Colors.grey.shade200,
-                          ),
+    return Column(
+      children: [
+        const Hairline(),
+        Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: onTap,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(
+                AppTheme.pageGutter,
+                AppTheme.space20,
+                AppTheme.pageGutter,
+                AppTheme.space20,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(emoji, style: const TextStyle(fontSize: 22)),
+                      const SizedBox(width: AppTheme.space12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Eyebrow(
+                              isOver
+                                  ? 'OVER ${percentage.toStringAsFixed(0)}%'
+                                  : '${percentage.toStringAsFixed(0)}%',
+                              color: isOver ? expense : secondary,
+                            ),
+                            const SizedBox(height: AppTheme.space4),
+                            Text(
+                              budget['category'] as String,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: GoogleFonts.spaceGrotesk(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w600,
+                                letterSpacing: -0.3,
+                                color: ink,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                    ),
-                    Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
+                      const SizedBox(width: AppTheme.space12),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
+                          Eyebrow('TERPAKAI', color: secondary, size: 10),
+                          const SizedBox(height: AppTheme.space4),
                           Text(
-                            emoji ?? '📊',
-                            style: const TextStyle(fontSize: 24),
+                            money(spent),
+                            style: GoogleFonts.spaceGrotesk(
+                              fontSize: 17,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: -0.2,
+                              color: amountColor,
+                            ),
                           ),
-                          const SizedBox(height: 2),
+                          const SizedBox(height: AppTheme.space4),
                           Text(
-                            '${percentage.toStringAsFixed(0)}%',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                              color: color,
+                            'dari ${money(amount)}',
+                            style: GoogleFonts.inter(
+                              fontSize: 11,
+                              color: secondary,
                             ),
                           ),
                         ],
                       ),
-                    ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(width: AppTheme.space16),
-
-              // Budget Details
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            budget['category'] as String,
-                            style: Theme.of(context).textTheme.titleMedium
-                                ?.copyWith(fontWeight: FontWeight.w600),
-                          ),
+                      const SizedBox(width: AppTheme.space8),
+                      InkWell(
+                        onTap: onDelete,
+                        customBorder: const CircleBorder(),
+                        child: Padding(
+                          padding: const EdgeInsets.all(6),
+                          child: Icon(Icons.delete_outline, size: 18, color: secondary),
                         ),
-                        IconButton(
-                          icon: const Icon(Icons.delete_outline, size: 20),
-                          onPressed: onDelete,
-                          color: Colors.red,
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Terpakai',
-                                style: Theme.of(context).textTheme.bodySmall
-                                    ?.copyWith(
-                                      color: AppTheme.textSecondary,
-                                      fontSize: 10,
-                                    ),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                NumberFormat.currency(
-                                  locale: 'id_ID',
-                                  symbol: 'Rp ',
-                                  decimalDigits: 0,
-                                ).format(spent),
-                                style: Theme.of(context).textTheme.bodyMedium
-                                    ?.copyWith(
-                                      fontWeight: FontWeight.w600,
-                                      color: color,
-                                    ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: [
-                              Text(
-                                'Anggaran',
-                                style: Theme.of(context).textTheme.bodySmall
-                                    ?.copyWith(
-                                      color: AppTheme.textSecondary,
-                                      fontSize: 10,
-                                    ),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                NumberFormat.currency(
-                                  locale: 'id_ID',
-                                  symbol: 'Rp ',
-                                  decimalDigits: 0,
-                                ).format(amount),
-                                style: Theme.of(context).textTheme.bodyMedium
-                                    ?.copyWith(fontWeight: FontWeight.w600),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
                       ),
-                      decoration: BoxDecoration(
-                        color: remaining >= 0
-                            ? Colors.green.shade50
-                            : Colors.red.shade50,
-                        borderRadius: BorderRadius.circular(4),
+                    ],
+                  ),
+                  const SizedBox(height: AppTheme.space16),
+                  Container(
+                    height: 2,
+                    decoration: BoxDecoration(color: hairline),
+                    child: FractionallySizedBox(
+                      alignment: Alignment.centerLeft,
+                      widthFactor: (percentage / 100).clamp(0.0, 1.0),
+                      child: Container(color: progressColor),
+                    ),
+                  ),
+                  if (remaining < 0) ...[
+                    const SizedBox(height: AppTheme.space8),
+                    Text(
+                      'Lebih ${money(remaining.abs())}',
+                      style: GoogleFonts.inter(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: expense,
                       ),
-                      child: Text(
-                        remaining >= 0
-                            ? 'Sisa ${NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0).format(remaining)}'
-                            : 'Lebih ${NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0).format(remaining.abs())}',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: remaining >= 0
-                              ? Colors.green.shade700
-                              : Colors.red.shade700,
-                        ),
+                    ),
+                  ] else if (remaining > 0) ...[
+                    const SizedBox(height: AppTheme.space8),
+                    Text(
+                      'Sisa ${money(remaining)}',
+                      style: GoogleFonts.inter(
+                        fontSize: 12,
+                        color: secondary,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
                   ],
-                ),
+                ],
               ),
-            ],
+            ),
           ),
         ),
-      ),
+      ],
     );
-  }
-}
-
-// Custom Circular Progress Painter
-class _CircularProgressPainter extends CustomPainter {
-  final double progress;
-  final Color color;
-  final Color backgroundColor;
-
-  _CircularProgressPainter({
-    required this.progress,
-    required this.color,
-    required this.backgroundColor,
-  });
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final center = Offset(size.width / 2, size.height / 2);
-    final radius = size.width / 2;
-    const strokeWidth = 8.0;
-
-    // Background circle
-    final bgPaint = Paint()
-      ..color = backgroundColor
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = strokeWidth
-      ..strokeCap = StrokeCap.round;
-
-    canvas.drawCircle(center, radius - strokeWidth / 2, bgPaint);
-
-    // Progress arc
-    final progressPaint = Paint()
-      ..color = color
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = strokeWidth
-      ..strokeCap = StrokeCap.round;
-
-    const startAngle = -math.pi / 2;
-    final sweepAngle = 2 * math.pi * progress;
-
-    canvas.drawArc(
-      Rect.fromCircle(center: center, radius: radius - strokeWidth / 2),
-      startAngle,
-      sweepAngle,
-      false,
-      progressPaint,
-    );
-  }
-
-  @override
-  bool shouldRepaint(_CircularProgressPainter oldDelegate) {
-    return oldDelegate.progress != progress ||
-        oldDelegate.color != color ||
-        oldDelegate.backgroundColor != backgroundColor;
   }
 }

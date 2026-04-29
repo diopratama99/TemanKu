@@ -1,11 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../data/app_database.dart';
 import '../state/auth_notifier.dart';
 import '../theme/app_theme.dart';
+import '../utils/theme_utils.dart';
+import '../widgets/editorial.dart';
 import '../widgets/state_widgets.dart';
 
+/// Editorial cover-style login. Magazine masthead at the top,
+/// huge display title, segmented underline tabs, hairline form fields.
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
 
@@ -18,7 +24,7 @@ class _LoginPageState extends State<LoginPage>
   late TabController _tabController;
   final _loginEmail = TextEditingController();
   final _loginPassword = TextEditingController();
-  final _regName = TextEditingController();
+  final _regUsername = TextEditingController();
   final _regEmail = TextEditingController();
   final _regPassword = TextEditingController();
   bool _busy = false;
@@ -30,7 +36,7 @@ class _LoginPageState extends State<LoginPage>
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
     _tabController.addListener(() {
-      setState(() {}); // Update UI when tab changes
+      if (mounted) setState(() {});
     });
   }
 
@@ -38,7 +44,7 @@ class _LoginPageState extends State<LoginPage>
   void dispose() {
     _loginEmail.dispose();
     _loginPassword.dispose();
-    _regName.dispose();
+    _regUsername.dispose();
     _regEmail.dispose();
     _regPassword.dispose();
     _tabController.dispose();
@@ -52,7 +58,7 @@ class _LoginPageState extends State<LoginPage>
       final auth = context.read<AuthNotifier>();
       err = await auth.login(_loginEmail.text, _loginPassword.text);
     } catch (e) {
-      err = 'Gagal login: $e';
+      err = 'Gagal masuk: $e';
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -60,20 +66,27 @@ class _LoginPageState extends State<LoginPage>
     if (err != null) {
       showErrorSnackbar(context, err);
     } else {
-      showSuccessSnackbar(context, 'Login berhasil!');
-      // Navigate to root and clear all routes
+      showSuccessSnackbar(context, 'Selamat datang kembali');
       Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
     }
   }
 
   Future<void> _doRegister() async {
+    if (_regUsername.text.trim().isEmpty) {
+      showErrorSnackbar(context, 'Nama pengguna tidak boleh kosong');
+      return;
+    }
+    if (_regEmail.text.trim().isEmpty) {
+      showErrorSnackbar(context, 'Email tidak boleh kosong');
+      return;
+    }
     setState(() => _busy = true);
     String? err;
     try {
       final auth = context.read<AuthNotifier>();
       err = await auth.register(
-        _regName.text,
-        _regEmail.text,
+        _regUsername.text.trim(),
+        _regEmail.text.trim(),
         _regPassword.text,
       );
     } catch (e) {
@@ -85,28 +98,12 @@ class _LoginPageState extends State<LoginPage>
     if (err != null) {
       showErrorSnackbar(context, err);
     } else {
-      showSuccessSnackbar(context, 'Registrasi berhasil!');
-      Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
-    }
-  }
-
-  Future<void> _doGoogle() async {
-    setState(() => _busy = true);
-    String? err;
-    try {
-      final auth = context.read<AuthNotifier>();
-      err = await auth.loginGoogle();
-    } catch (e) {
-      err = 'Gagal login Google: $e';
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
-    if (!mounted) return;
-    if (err != null) {
-      showErrorSnackbar(context, err);
-    } else {
-      showSuccessSnackbar(context, 'Login dengan Google berhasil!');
-      Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
+      // Navigate to OTP verification page
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => _OtpVerificationPage(email: _regEmail.text.trim()),
+        ),
+      );
     }
   }
 
@@ -117,347 +114,453 @@ class _LoginPageState extends State<LoginPage>
       // Will be redirected by MaterialApp home builder
     }
 
+    final paper = ThemeUtils.getBackgroundColor(context);
+    final ink = ThemeUtils.getTextPrimary(context);
+    final secondary = ThemeUtils.getTextSecondary(context);
+    final accent = ThemeUtils.getPrimaryColor(context);
     final isKeyboardVisible = MediaQuery.of(context).viewInsets.bottom > 0;
+    final edition = DateFormat('MMMM yyyy', 'id')
+        .format(DateTime.now())
+        .toUpperCase();
 
     return Scaffold(
+      backgroundColor: paper,
       resizeToAvoidBottomInset: true,
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: AppTheme.space24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // App Logo/Icon - Hide when keyboard is visible
-              if (!isKeyboardVisible) ...[
-                const SizedBox(height: AppTheme.space24),
-                Image.asset(
-                  'assets/images/temanku_icon.png',
-                  width: 140,
-                  height: 140,
-                ),
-                const SizedBox(height: AppTheme.space8),
-              ] else ...[
-                const SizedBox(height: AppTheme.space16),
-              ],
+        child: SingleChildScrollView(
+          padding: EdgeInsets.fromLTRB(
+            AppTheme.pageGutter,
+            AppTheme.space24,
+            AppTheme.pageGutter,
+            AppTheme.space32 +
+                MediaQuery.of(context).viewInsets.bottom * 0.1,
+          ),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              minHeight: MediaQuery.of(context).size.height -
+                  MediaQuery.of(context).padding.vertical -
+                  MediaQuery.of(context).viewInsets.bottom -
+                  AppTheme.space64,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Masthead — magazine name + edition + line below
+                if (!isKeyboardVisible) ...[
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Expanded(
+                        child: Eyebrow('TEMANKU · EDISI $edition'),
+                      ),
+                      Eyebrow('No. 01', color: secondary),
+                    ],
+                  ),
+                  const SizedBox(height: AppTheme.space16),
+                  const Hairline(thickness: 2),
+                  const SizedBox(height: AppTheme.space40),
+                ] else ...[
+                  const SizedBox(height: AppTheme.space12),
+                ],
 
-              // App Title
-              Text(
-                'Temanku',
-                style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                  color: AppTheme.primaryColor,
-                  fontWeight: FontWeight.w800,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: AppTheme.space8),
-              Text(
-                'Teman kecil yang bantu jagain keuanganmu',
-                style: Theme.of(
-                  context,
-                ).textTheme.bodyMedium?.copyWith(color: AppTheme.textSecondary),
-                textAlign: TextAlign.center,
-              ),
-
-              SizedBox(
-                height: isKeyboardVisible ? AppTheme.space24 : AppTheme.space48,
-              ),
-
-              // Login/Register Tabs - Modern Segmented Control
-              Container(
-                height: 56,
-                padding: const EdgeInsets.all(4),
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade100,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: Colors.grey.shade200, width: 1),
-                ),
-                child: Stack(
-                  children: [
-                    // Animated background
-                    AnimatedAlign(
-                      alignment: _tabController.index == 0
-                          ? Alignment.centerLeft
-                          : Alignment.centerRight,
-                      duration: const Duration(milliseconds: 200),
-                      curve: Curves.easeOut,
-                      child: Container(
-                        width: MediaQuery.of(context).size.width / 2 - 32,
-                        height: 48,
-                        decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            colors: [Color(0xFF10B981), Color(0xFF059669)],
+                // Cover — display title + tagline asymmetric
+                if (!isKeyboardVisible) ...[
+                  DisplayTitle(
+                    'Cerita\nKeuangan\nKamu.',
+                    size: 44,
+                    weight: FontWeight.w600,
+                  ),
+                  const SizedBox(height: AppTheme.space20),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        flex: 2,
+                        child: Text(
+                          'Halaman terbuka untuk catatan, anggaran, dan target. '
+                          'Ditulis dengan tenang, dibaca dengan jelas.',
+                          style: GoogleFonts.inter(
+                            fontSize: 14,
+                            height: 1.6,
+                            color: secondary,
                           ),
-                          borderRadius: BorderRadius.circular(12),
-                          boxShadow: [
-                            BoxShadow(
-                              color: AppTheme.primaryColor.withOpacity(0.3),
-                              blurRadius: 8,
-                              offset: const Offset(0, 2),
+                        ),
+                      ),
+                      const SizedBox(width: AppTheme.space24),
+                      Expanded(
+                        flex: 1,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Eyebrow('OLEH', color: secondary),
+                            const SizedBox(height: AppTheme.space4),
+                            Text(
+                              'Teman\nLabs',
+                              textAlign: TextAlign.right,
+                              style: GoogleFonts.spaceGrotesk(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                height: 1.2,
+                                color: ink,
+                              ),
                             ),
                           ],
                         ),
                       ),
-                    ),
-                    // Tabs
-                    Row(
-                      children: [
-                        Expanded(
-                          child: GestureDetector(
-                            behavior: HitTestBehavior.opaque,
-                            onTap: () {
-                              if (_tabController.index != 0) {
-                                _tabController.animateTo(0);
-                              }
-                            },
-                            child: Container(
-                              alignment: Alignment.center,
-                              child: AnimatedDefaultTextStyle(
-                                duration: const Duration(milliseconds: 150),
-                                curve: Curves.easeOut,
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w700,
-                                  color: _tabController.index == 0
-                                      ? Colors.white
-                                      : AppTheme.textSecondary,
-                                ),
-                                child: const Text('Masuk'),
-                              ),
-                            ),
-                          ),
-                        ),
-                        Expanded(
-                          child: GestureDetector(
-                            behavior: HitTestBehavior.opaque,
-                            onTap: () {
-                              if (_tabController.index != 1) {
-                                _tabController.animateTo(1);
-                              }
-                            },
-                            child: Container(
-                              alignment: Alignment.center,
-                              child: AnimatedDefaultTextStyle(
-                                duration: const Duration(milliseconds: 150),
-                                curve: Curves.easeOut,
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w700,
-                                  color: _tabController.index == 1
-                                      ? Colors.white
-                                      : AppTheme.textSecondary,
-                                ),
-                                child: const Text('Daftar'),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
+                    ],
+                  ),
+                  const SizedBox(height: AppTheme.space32),
+                ],
 
-              const SizedBox(height: AppTheme.space16),
+                // Tabs — underline only, indigo accent
+                _buildSegmented(ink, secondary, accent),
+                const SizedBox(height: AppTheme.space24),
 
-              // Form Content
-              Expanded(
-                child: TabBarView(
-                  controller: _tabController,
-                  children: [_buildLogin(), _buildRegister()],
+                // Form
+                AnimatedSize(
+                  duration: const Duration(milliseconds: 220),
+                  curve: Curves.easeOutCubic,
+                  child: IndexedStack(
+                    index: _tabController.index,
+                    sizing: StackFit.loose,
+                    children: [_buildLogin(), _buildRegister()],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
     );
   }
 
-  Widget _buildLogin() {
-    return SingleChildScrollView(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          TextField(
-            controller: _loginEmail,
-            keyboardType: TextInputType.text,
-            style: const TextStyle(color: AppTheme.textPrimary),
-            decoration: InputDecoration(
-              hintText: 'Username',
-              hintStyle: TextStyle(color: Colors.grey.shade500),
-              prefixIcon: const Icon(Icons.person_outline),
-              border: const OutlineInputBorder(),
-            ),
-          ),
-          const SizedBox(height: AppTheme.space16),
-          TextField(
-            controller: _loginPassword,
-            obscureText: _obscureLoginPassword,
-            style: const TextStyle(color: AppTheme.textPrimary),
-            decoration: InputDecoration(
-              hintText: 'Password',
-              hintStyle: TextStyle(color: Colors.grey.shade500),
-              prefixIcon: const Icon(Icons.lock_outline),
-              border: const OutlineInputBorder(),
-              suffixIcon: IconButton(
-                icon: Icon(
-                  _obscureLoginPassword
-                      ? Icons.visibility_off
-                      : Icons.visibility,
-                ),
-                onPressed: () {
-                  setState(() {
-                    _obscureLoginPassword = !_obscureLoginPassword;
-                  });
+  Widget _buildSegmented(Color ink, Color secondary, Color accent) {
+    final tabs = ['MASUK', 'DAFTAR'];
+    return Column(
+      children: [
+        Row(
+          children: List.generate(tabs.length, (i) {
+            final selected = _tabController.index == i;
+            return Expanded(
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () {
+                  if (_tabController.index != i) {
+                    _tabController.animateTo(i);
+                  }
                 },
-              ),
-            ),
-          ),
-          const SizedBox(height: AppTheme.space24),
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton(
-              onPressed: _busy ? null : _doLogin,
-              style: FilledButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: AppTheme.space16),
-              ),
-              child: _busy
-                  ? const SizedBox(
-                      height: 20,
-                      width: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.white,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: AppTheme.space12),
+                  decoration: BoxDecoration(
+                    border: Border(
+                      bottom: BorderSide(
+                        color: selected
+                            ? ThemeUtils.getAccentGreen(context)
+                            : Colors.transparent,
+                        width: 2,
                       ),
-                    )
-                  : const Text('Masuk'),
-            ),
-          ),
-          const SizedBox(height: AppTheme.space24),
-          // Divider
-          Row(
-            children: [
-              const Expanded(child: Divider()),
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppTheme.space16,
-                ),
-                child: Text(
-                  'Atau',
-                  style: TextStyle(color: AppTheme.textSecondary, fontSize: 13),
-                ),
-              ),
-              const Expanded(child: Divider()),
-            ],
-          ),
-          const SizedBox(height: AppTheme.space24),
-          // Google Login Button
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton(
-              onPressed: _busy ? null : _doGoogle,
-              style: OutlinedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: AppTheme.space16),
-                side: const BorderSide(
-                  color: AppTheme.primaryColor,
-                  width: 1.5,
-                ),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Image.network(
-                    'https://www.google.com/favicon.ico',
-                    width: 20,
-                    height: 20,
-                  ),
-                  const SizedBox(width: 12),
-                  const Text(
-                    'Masuk dengan Google',
-                    style: TextStyle(
-                      color: AppTheme.primaryColor,
-                      fontWeight: FontWeight.w600,
                     ),
                   ),
-                ],
+                  child: Center(
+                    child: Text(
+                      tabs[i],
+                      style: GoogleFonts.inter(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 1.6,
+                        color: selected ? ink : secondary,
+                      ),
+                    ),
+                  ),
+                ),
               ),
+            );
+          }),
+        ),
+        const Hairline(),
+      ],
+    );
+  }
+
+  Widget _buildLogin() {
+    return Column(
+      key: const ValueKey('login'),
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const SizedBox(height: AppTheme.space12),
+        _Field(
+          label: 'ALAMAT EMAIL',
+          controller: _loginEmail,
+          keyboardType: TextInputType.emailAddress,
+        ),
+        const SizedBox(height: AppTheme.space20),
+        _Field(
+          label: 'KATA SANDI',
+          controller: _loginPassword,
+          obscure: _obscureLoginPassword,
+          onToggleObscure: () => setState(() {
+            _obscureLoginPassword = !_obscureLoginPassword;
+          }),
+        ),
+        const SizedBox(height: AppTheme.space32),
+        SizedBox(
+          height: 56,
+          child: FilledButton(
+            onPressed: _busy ? null : _doLogin,
+            style: FilledButton.styleFrom(
+              backgroundColor: ThemeUtils.getPrimaryColor(context),
             ),
+            child: _busy
+                ? const SizedBox(
+                    height: 18,
+                    width: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
+                : const Text('MASUK SEKARANG'),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
   Widget _buildRegister() {
-    return SingleChildScrollView(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          TextField(
-            controller: _regName,
-            style: const TextStyle(color: AppTheme.textPrimary),
-            decoration: InputDecoration(
-              hintText: 'Nama Lengkap',
-              hintStyle: TextStyle(color: Colors.grey.shade500),
-              prefixIcon: const Icon(Icons.badge_outlined),
-              border: const OutlineInputBorder(),
+    return Column(
+      key: const ValueKey('register'),
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const SizedBox(height: AppTheme.space12),
+        _Field(
+          label: 'NAMA PENGGUNA',
+          controller: _regUsername,
+        ),
+        const SizedBox(height: AppTheme.space20),
+        _Field(
+          label: 'ALAMAT EMAIL',
+          controller: _regEmail,
+          keyboardType: TextInputType.emailAddress,
+        ),
+        const SizedBox(height: AppTheme.space20),
+        _Field(
+          label: 'KATA SANDI',
+          controller: _regPassword,
+          obscure: _obscureRegPassword,
+          onToggleObscure: () => setState(() {
+            _obscureRegPassword = !_obscureRegPassword;
+          }),
+        ),
+        const SizedBox(height: AppTheme.space32),
+        SizedBox(
+          height: 56,
+          child: FilledButton(
+            onPressed: _busy ? null : _doRegister,
+            style: FilledButton.styleFrom(
+              backgroundColor: ThemeUtils.getPrimaryColor(context),
             ),
+            child: _busy
+                ? const SizedBox(
+                    height: 18,
+                    width: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
+                : const Text('TERBITKAN AKUN'),
           ),
-          const SizedBox(height: AppTheme.space16),
-          TextField(
-            controller: _regEmail,
-            keyboardType: TextInputType.text,
-            style: const TextStyle(color: AppTheme.textPrimary),
-            decoration: InputDecoration(
-              hintText: 'Username',
-              hintStyle: TextStyle(color: Colors.grey.shade500),
-              prefixIcon: const Icon(Icons.person_outline),
-              border: const OutlineInputBorder(),
-            ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Editorial underline-style field with a small uppercase label above.
+class _Field extends StatelessWidget {
+  final String label;
+  final TextEditingController controller;
+  final bool obscure;
+  final VoidCallback? onToggleObscure;
+  final TextInputType? keyboardType;
+
+  const _Field({
+    required this.label,
+    required this.controller,
+    this.obscure = false,
+    this.onToggleObscure,
+    this.keyboardType,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final ink = ThemeUtils.getTextPrimary(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Eyebrow(label),
+        TextField(
+          controller: controller,
+          obscureText: obscure,
+          keyboardType: keyboardType,
+          style: GoogleFonts.spaceGrotesk(
+            fontSize: 18,
+            fontWeight: FontWeight.w500,
+            color: ink,
+            letterSpacing: -0.1,
           ),
-          const SizedBox(height: AppTheme.space16),
-          TextField(
-            controller: _regPassword,
-            obscureText: _obscureRegPassword,
-            style: const TextStyle(color: AppTheme.textPrimary),
-            decoration: InputDecoration(
-              hintText: 'Password',
-              hintStyle: TextStyle(color: Colors.grey.shade500),
-              prefixIcon: const Icon(Icons.lock_outline),
-              border: const OutlineInputBorder(),
-              suffixIcon: IconButton(
-                icon: Icon(
-                  _obscureRegPassword ? Icons.visibility_off : Icons.visibility,
+          decoration: InputDecoration(
+            isDense: true,
+            border: const UnderlineInputBorder(),
+            suffixIcon: onToggleObscure == null
+                ? null
+                : IconButton(
+                    splashRadius: 20,
+                    onPressed: onToggleObscure,
+                    icon: Icon(
+                      obscure ? Icons.visibility_off : Icons.visibility,
+                      size: 18,
+                    ),
+                  ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// OTP email verification page shown after registration.
+class _OtpVerificationPage extends StatefulWidget {
+  final String email;
+  const _OtpVerificationPage({required this.email});
+
+  @override
+  State<_OtpVerificationPage> createState() => _OtpVerificationPageState();
+}
+
+class _OtpVerificationPageState extends State<_OtpVerificationPage> {
+  final _otpController = TextEditingController();
+  bool _busy = false;
+
+  @override
+  void dispose() {
+    _otpController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _verify() async {
+    if (_otpController.text.trim().isEmpty) {
+      showErrorSnackbar(context, 'Masukkan kode verifikasi');
+      return;
+    }
+    setState(() => _busy = true);
+    final err = await context.read<AuthNotifier>().verifyOtp(
+      widget.email,
+      _otpController.text.trim(),
+    );
+    if (!mounted) return;
+    setState(() => _busy = false);
+    if (err != null) {
+      showErrorSnackbar(context, err);
+    } else {
+      showSuccessSnackbar(context, 'Akun berhasil diverifikasi!');
+      Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final paper = ThemeUtils.getBackgroundColor(context);
+    final ink = ThemeUtils.getTextPrimary(context);
+    final secondary = ThemeUtils.getTextSecondary(context);
+
+    return Scaffold(
+      backgroundColor: paper,
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(AppTheme.pageGutter),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const SizedBox(height: AppTheme.space40),
+              EditorialHeader(
+                eyebrow: 'VERIFIKASI',
+                title: 'Cek email\nkamu.',
+                titleSize: 36,
+                showHairline: false,
+              ),
+              const SizedBox(height: AppTheme.space16),
+              Text(
+                'Kami sudah mengirim kode verifikasi ke:',
+                style: GoogleFonts.inter(
+                  fontSize: 14,
+                  color: secondary,
+                  height: 1.5,
                 ),
-                onPressed: () {
-                  setState(() {
-                    _obscureRegPassword = !_obscureRegPassword;
-                  });
-                },
               ),
-            ),
-          ),
-          const SizedBox(height: AppTheme.space24),
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton(
-              onPressed: _busy ? null : _doRegister,
-              style: FilledButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: AppTheme.space16),
+              const SizedBox(height: AppTheme.space8),
+              Text(
+                widget.email,
+                style: GoogleFonts.spaceGrotesk(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: ink,
+                ),
               ),
-              child: _busy
-                  ? const SizedBox(
-                      height: 20,
-                      width: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.white,
-                      ),
-                    )
-                  : const Text('Daftar'),
-            ),
+              const SizedBox(height: AppTheme.space32),
+              Eyebrow('KODE VERIFIKASI'),
+              TextField(
+                controller: _otpController,
+                keyboardType: TextInputType.number,
+                textAlign: TextAlign.center,
+                style: GoogleFonts.spaceGrotesk(
+                  fontSize: 28,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 8,
+                  color: ink,
+                ),
+                decoration: const InputDecoration(
+                  isDense: true,
+                  border: UnderlineInputBorder(),
+                  hintText: '000000',
+                ),
+                maxLength: 6,
+              ),
+              const SizedBox(height: AppTheme.space32),
+              SizedBox(
+                height: 56,
+                child: FilledButton(
+                  onPressed: _busy ? null : _verify,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: ThemeUtils.getPrimaryColor(context),
+                  ),
+                  child: _busy
+                      ? const SizedBox(
+                          height: 18,
+                          width: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Text('VERIFIKASI'),
+                ),
+              ),
+              const SizedBox(height: AppTheme.space24),
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: Text(
+                  'KEMBALI KE LOGIN',
+                  style: GoogleFonts.inter(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 1.2,
+                  ),
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }

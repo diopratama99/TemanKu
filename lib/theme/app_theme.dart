@@ -1,99 +1,154 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-/// AppTheme with Material Design 3 principles and WCAG 2.1 AA compliance
+/// Editorial / Magazine-style design system.
+///
+/// Principles:
+/// - Typography-first hierarchy (Space Grotesk display + Inter body).
+/// - Single indigo accent (used sparingly — like a print highlight).
+/// - Hairline 1px dividers, no shadows, no gradients, no glass.
+/// - Flat paper-neutral surfaces.
+/// - Generous whitespace and asymmetric, baseline-aligned layouts.
 class AppTheme {
   // ============================================================
-  // DESIGN TOKENS - Color System
+  // DESIGN TOKENS - Editorial Color System (Light / Paper)
   // ============================================================
 
-  /// Primary color - Financial Growth Green (brand color)
-  static const Color primaryColor = Color(0xFF157347); // Brand Green
+  /// Single accent — indigo, used like a print highlight.
+  static const Color primaryColor = Color(0xFF3730A3); // Indigo 800
+  static const Color accentColor = primaryColor;
   static const Color onPrimary = Color(0xFFFFFFFF);
 
-  /// Semantic colors for financial transactions
-  static const Color incomeColor = Color(
-    0xFF16A34A,
-  ); // Green 600 - Bright Green (lebih cerah)
-  static const Color expenseColor = Color(
-    0xFFC62828,
-  ); // Red 800 (4.5:1 contrast)
-  static const Color neutralColor = Color(0xFF455A64); // Blue Grey 700
+  /// Brand accent — forest green, used as a thin masthead rule
+  /// and selectively for financial sections (BRANKAS, TABUNGAN).
+  /// Kept restrained: only as 1–2px lines, never as fills.
+  static const Color accentGreen = Color(0xFF166534); // Forest green 800
 
-  /// Surface & Background colors
-  static const Color surfaceColor = Color(0xFFFAFAFA);
-  static const Color backgroundColor = Color(0xFFF5F5F5);
-  static const Color cardColor = Color(0xFFFFFFFF);
+  /// Semantic financial colors — restrained, secondary to typography.
+  static const Color incomeColor = Color(0xFF15803D); // Forest green 700
+  static const Color expenseColor = Color(0xFFB91C1C); // Crimson 700
+  static const Color neutralColor = Color(0xFF44403C); // Stone 700
 
-  /// Text colors with accessible contrast ratios
-  static const Color textPrimary = Color(0xFF212121); // Grey 900 (15.8:1)
-  static const Color textSecondary = Color(0xFF757575); // Grey 600 (4.6:1)
-  static const Color textDisabled = Color(0xFFBDBDBD); // Grey 400
+  /// Paper surfaces — flat, warm off-white.
+  static const Color backgroundColor = Color(0xFFF7F4EE); // Warm paper
+  static const Color surfaceColor = Color(0xFFFBF8F2); // Lighter paper
+  static const Color cardColor = Color(0xFFFFFFFF); // White (with hairline)
 
-  // ============================================================
-  // DARK MODE COLORS - Carefully crafted for readability
-  // ============================================================
+  /// Ink hierarchy — typography carries the emphasis.
+  static const Color textPrimary = Color(0xFF111111); // Ink black
+  static const Color textSecondary = Color(0xFF6B6B6B); // Mid grey
+  static const Color textDisabled = Color(0xFFB8B5AE); // Soft grey
 
-  /// Primary color - Softer green for dark mode
-  static const Color darkPrimaryColor = Color(0xFF20C073); // Brighter green
-  static const Color darkOnPrimary = Color(0xFF003821);
-
-  /// Semantic colors for dark mode
-  static const Color darkIncomeColor = Color(0xFF22C55E); // Green 500 - Vibrant
-  static const Color darkExpenseColor = Color(
-    0xFFEF5350,
-  ); // Red 400 - Softer red
-
-  /// Surface & Background colors - Softer grey tones (not pure black)
-  static const Color darkSurfaceColor = Color(0xFF3A3A3C); // Medium grey (card)
-  static const Color darkBackgroundColor = Color(
-    0xFF2C2C2E,
-  ); // Lighter grey (background)
-  static const Color darkCardColor = Color(
-    0xFF48484A,
-  ); // Light grey (elevated card)
-
-  /// Text colors for dark mode - Clean white/grey
-  static const Color darkTextPrimary = Color(
-    0xFFFFFFFF,
-  ); // Pure white for primary text
-  static const Color darkTextSecondary = Color(
-    0xFFAAAAAA,
-  ); // Light grey for secondary
-  static const Color darkTextDisabled = Color(
-    0xFF6E6E6E,
-  ); // Medium grey for disabled
+  /// Hairline — 1px column separator, like newspaper rules.
+  static const Color hairlineColor = Color(0xFFE3DED2);
 
   // ============================================================
-  // DESIGN TOKENS - Spacing System (8dp grid)
+  // DARK MODE — Night edition (paper-on-night)
+  // ============================================================
+
+  static const Color darkPrimaryColor = Color(0xFFA5B4FC); // Indigo 300 (legible on dark)
+  static const Color darkOnPrimary = Color(0xFF1E1B4B);
+
+  /// Dark-mode brand green — soft mint, paired with darkPrimaryColor.
+  static const Color darkAccentGreen = Color(0xFF86EFAC); // Green 300
+
+  static const Color darkIncomeColor = Color(0xFF4ADE80); // Green 400
+  static const Color darkExpenseColor = Color(0xFFF87171); // Red 400
+
+  static const Color darkBackgroundColor = Color(0xFF111111); // Deep ink
+  static const Color darkSurfaceColor = Color(0xFF161616);
+  static const Color darkCardColor = Color(0xFF1C1C1C);
+
+  static const Color darkTextPrimary = Color(0xFFF5F1EA); // Paper on dark
+  static const Color darkTextSecondary = Color(0xFFA8A29E);
+  static const Color darkTextDisabled = Color(0xFF57534E);
+
+  static const Color darkHairlineColor = Color(0xFF2A2A2A);
+
+  // ============================================================
+  // DESIGN TOKENS - Spacing (generous editorial scale)
   // ============================================================
   static const double space4 = 4.0;
   static const double space8 = 8.0;
   static const double space12 = 12.0;
   static const double space16 = 16.0;
+  static const double space20 = 20.0;
   static const double space24 = 24.0;
   static const double space32 = 32.0;
+  static const double space40 = 40.0;
   static const double space48 = 48.0;
+  static const double space64 = 64.0;
+  static const double space80 = 80.0;
+
+  /// Standard editorial gutter — used as horizontal page padding.
+  static const double pageGutter = 24.0;
 
   // ============================================================
-  // DESIGN TOKENS - Elevation & Radius
+  // DESIGN TOKENS - Radius (minimal, almost square)
   // ============================================================
-  static const double elevation1 = 2.0; // Default cards
-  static const double elevation2 = 4.0; // Raised components
-  static const double elevation3 = 8.0; // FAB, dialogs
+  static const double elevation1 = 0.0;
+  static const double elevation2 = 0.0;
+  static const double elevation3 = 0.0;
 
-  static const double radiusSmall = 8.0;
-  static const double radiusMedium = 12.0;
-  static const double radiusLarge = 16.0;
-  static const double radiusXLarge = 24.0;
+  static const double radiusSmall = 2.0;
+  static const double radiusMedium = 4.0;
+  static const double radiusLarge = 6.0;
+  static const double radiusXLarge = 8.0;
+
+  static const double hairlineWidth = 1.0;
 
   // ============================================================
   // DESIGN TOKENS - Touch Targets (Accessibility)
   // ============================================================
-  static const double minTouchTarget = 48.0; // WCAG minimum
+  static const double minTouchTarget = 48.0;
 
   // ============================================================
-  // Theme Builder
+  // Editorial Typography helpers
+  // ============================================================
+
+  /// Display style — Space Grotesk, used for hero titles & numbers (32–44px).
+  static TextStyle display({
+    double size = 40,
+    Color color = textPrimary,
+    FontWeight weight = FontWeight.w600,
+    double height = 1.05,
+  }) {
+    return GoogleFonts.spaceGrotesk(
+      fontSize: size,
+      fontWeight: weight,
+      height: height,
+      color: color,
+      letterSpacing: -0.8,
+    );
+  }
+
+  /// Eyebrow style — small uppercase tracked label (article category).
+  static TextStyle eyebrow({
+    Color color = textSecondary,
+    double size = 11,
+  }) {
+    return GoogleFonts.inter(
+      fontSize: size,
+      fontWeight: FontWeight.w600,
+      letterSpacing: 1.6,
+      height: 1.2,
+      color: color,
+    );
+  }
+
+  /// Body serif — optional pull-quote / italic accents.
+  static TextStyle pullQuote({Color color = textPrimary}) {
+    return GoogleFonts.spaceGrotesk(
+      fontSize: 18,
+      fontWeight: FontWeight.w400,
+      fontStyle: FontStyle.italic,
+      height: 1.5,
+      color: color,
+    );
+  }
+
+  // ============================================================
+  // Theme Builder — Light (Paper)
   // ============================================================
   static ThemeData theme() {
     final base = ThemeData(
@@ -105,287 +160,391 @@ class AppTheme {
       scaffoldBackgroundColor: backgroundColor,
     );
 
-    // Typography Scale with Plus Jakarta Sans - Premium financial app aesthetic
-    // Clean, modern, excellent number readability, minimalist yet professional
-    final textTheme = GoogleFonts.plusJakartaSansTextTheme(base.textTheme)
-        .copyWith(
-          // Headline - Hero numbers (financial amounts, key metrics)
-          headlineLarge: GoogleFonts.plusJakartaSans(
-            fontSize: 32,
-            fontWeight: FontWeight.w800,
-            height: 1.2,
-            color: textPrimary,
-            letterSpacing: -0.5,
-          ),
-          headlineMedium: GoogleFonts.plusJakartaSans(
-            fontSize: 24,
-            fontWeight: FontWeight.w700,
-            height: 1.3,
-            color: textPrimary,
-            letterSpacing: -0.3,
-          ),
+    // Typography: Inter for body/label, Space Grotesk for display.
+    final textTheme = GoogleFonts.interTextTheme(base.textTheme).copyWith(
+      // Display — Space Grotesk hero hierarchy.
+      displayLarge: GoogleFonts.spaceGrotesk(
+        fontSize: 44,
+        fontWeight: FontWeight.w600,
+        height: 1.05,
+        color: textPrimary,
+        letterSpacing: -1.0,
+      ),
+      displayMedium: GoogleFonts.spaceGrotesk(
+        fontSize: 36,
+        fontWeight: FontWeight.w600,
+        height: 1.1,
+        color: textPrimary,
+        letterSpacing: -0.8,
+      ),
+      displaySmall: GoogleFonts.spaceGrotesk(
+        fontSize: 28,
+        fontWeight: FontWeight.w600,
+        height: 1.15,
+        color: textPrimary,
+        letterSpacing: -0.6,
+      ),
 
-          // Title - Section headers
-          titleLarge: GoogleFonts.plusJakartaSans(
-            fontSize: 20,
-            fontWeight: FontWeight.w700,
-            height: 1.4,
-            color: textPrimary,
-            letterSpacing: -0.2,
-          ),
-          titleMedium: GoogleFonts.plusJakartaSans(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-            height: 1.5,
-            color: textPrimary,
-            letterSpacing: 0,
-          ),
-          titleSmall: GoogleFonts.plusJakartaSans(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-            height: 1.4,
-            color: textPrimary,
-            letterSpacing: 0,
-          ),
+      // Headline — Space Grotesk for section titles.
+      headlineLarge: GoogleFonts.spaceGrotesk(
+        fontSize: 32,
+        fontWeight: FontWeight.w600,
+        height: 1.15,
+        color: textPrimary,
+        letterSpacing: -0.6,
+      ),
+      headlineMedium: GoogleFonts.spaceGrotesk(
+        fontSize: 24,
+        fontWeight: FontWeight.w600,
+        height: 1.2,
+        color: textPrimary,
+        letterSpacing: -0.4,
+      ),
+      headlineSmall: GoogleFonts.spaceGrotesk(
+        fontSize: 20,
+        fontWeight: FontWeight.w600,
+        height: 1.25,
+        color: textPrimary,
+        letterSpacing: -0.2,
+      ),
 
-          // Body - Content text
-          bodyLarge: GoogleFonts.plusJakartaSans(
-            fontSize: 16,
-            fontWeight: FontWeight.w400,
-            height: 1.5,
-            color: textPrimary,
-            letterSpacing: 0,
-          ),
-          bodyMedium: GoogleFonts.plusJakartaSans(
-            fontSize: 14,
-            fontWeight: FontWeight.w400,
-            height: 1.6,
-            color: textPrimary,
-            letterSpacing: 0,
-          ),
-          bodySmall: GoogleFonts.plusJakartaSans(
-            fontSize: 12,
-            fontWeight: FontWeight.w400,
-            height: 1.5,
-            color: textSecondary,
-            letterSpacing: 0,
-          ),
+      // Title — Space Grotesk for sub-titles.
+      titleLarge: GoogleFonts.spaceGrotesk(
+        fontSize: 18,
+        fontWeight: FontWeight.w600,
+        height: 1.3,
+        color: textPrimary,
+        letterSpacing: -0.1,
+      ),
+      titleMedium: GoogleFonts.inter(
+        fontSize: 15,
+        fontWeight: FontWeight.w600,
+        height: 1.4,
+        color: textPrimary,
+        letterSpacing: 0,
+      ),
+      titleSmall: GoogleFonts.inter(
+        fontSize: 13,
+        fontWeight: FontWeight.w600,
+        height: 1.4,
+        color: textPrimary,
+        letterSpacing: 0,
+      ),
 
-          // Label - Buttons, captions, navigation
-          labelLarge: GoogleFonts.plusJakartaSans(
-            fontSize: 14,
-            fontWeight: FontWeight.w700,
-            height: 1.4,
-            letterSpacing: 0.2,
-          ),
-          labelMedium: GoogleFonts.plusJakartaSans(
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-            height: 1.3,
-            letterSpacing: 0.3,
-          ),
-          labelSmall: GoogleFonts.plusJakartaSans(
-            fontSize: 11,
-            fontWeight: FontWeight.w600,
-            height: 1.3,
-            letterSpacing: 0.3,
-          ),
-        );
+      // Body — Inter for content.
+      bodyLarge: GoogleFonts.inter(
+        fontSize: 16,
+        fontWeight: FontWeight.w400,
+        height: 1.6,
+        color: textPrimary,
+        letterSpacing: 0,
+      ),
+      bodyMedium: GoogleFonts.inter(
+        fontSize: 14,
+        fontWeight: FontWeight.w400,
+        height: 1.6,
+        color: textPrimary,
+        letterSpacing: 0,
+      ),
+      bodySmall: GoogleFonts.inter(
+        fontSize: 12,
+        fontWeight: FontWeight.w400,
+        height: 1.5,
+        color: textSecondary,
+        letterSpacing: 0,
+      ),
+
+      // Label — Inter, used for buttons & nav.
+      labelLarge: GoogleFonts.inter(
+        fontSize: 13,
+        fontWeight: FontWeight.w600,
+        height: 1.3,
+        letterSpacing: 0.4,
+      ),
+      labelMedium: GoogleFonts.inter(
+        fontSize: 11,
+        fontWeight: FontWeight.w600,
+        height: 1.3,
+        letterSpacing: 1.4,
+      ),
+      labelSmall: GoogleFonts.inter(
+        fontSize: 10,
+        fontWeight: FontWeight.w600,
+        height: 1.3,
+        letterSpacing: 1.6,
+      ),
+    );
 
     return base.copyWith(
       colorScheme: base.colorScheme.copyWith(
         primary: primaryColor,
+        onPrimary: onPrimary,
         secondary: primaryColor,
         error: expenseColor,
         surface: surfaceColor,
-        background: backgroundColor,
+        onSurface: textPrimary,
+        outline: hairlineColor,
+        outlineVariant: hairlineColor,
       ),
 
-      // AppBar Theme
+      // AppBar — flat, paper bg, ink title (no green bar).
       appBarTheme: AppBarTheme(
-        backgroundColor: primaryColor,
-        foregroundColor: onPrimary,
-        centerTitle: true,
+        backgroundColor: backgroundColor,
+        foregroundColor: textPrimary,
+        centerTitle: false,
         elevation: 0,
-        titleTextStyle: textTheme.titleLarge?.copyWith(
-          color: onPrimary,
+        scrolledUnderElevation: 0,
+        surfaceTintColor: Colors.transparent,
+        iconTheme: const IconThemeData(color: textPrimary, size: 22),
+        actionsIconTheme: const IconThemeData(color: textPrimary, size: 22),
+        titleTextStyle: GoogleFonts.spaceGrotesk(
           fontSize: 20,
+          fontWeight: FontWeight.w600,
+          color: textPrimary,
+          letterSpacing: -0.2,
         ),
+        toolbarHeight: 64,
       ),
 
-      // Text Theme
       textTheme: textTheme,
 
-      // SnackBar Theme
+      // SnackBar — flat ink slab.
       snackBarTheme: SnackBarThemeData(
         behavior: SnackBarBehavior.floating,
         backgroundColor: textPrimary,
-        contentTextStyle: textTheme.bodyMedium?.copyWith(color: Colors.white),
+        contentTextStyle: textTheme.bodyMedium?.copyWith(
+          color: backgroundColor,
+        ),
+        elevation: 0,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(radiusMedium),
+          borderRadius: BorderRadius.circular(radiusSmall),
         ),
       ),
 
-      // Chip Theme
+      // Chip — square-ish hairline outline.
       chipTheme: ChipThemeData(
-        backgroundColor: primaryColor.withOpacity(0.08),
-        selectedColor: primaryColor,
-        labelStyle: textTheme.labelLarge,
-        shape: StadiumBorder(
-          side: BorderSide(color: primaryColor.withOpacity(0.2)),
+        backgroundColor: backgroundColor,
+        selectedColor: textPrimary,
+        labelStyle: textTheme.labelLarge?.copyWith(color: textPrimary),
+        secondaryLabelStyle: textTheme.labelLarge?.copyWith(color: backgroundColor),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(radiusSmall),
+          side: const BorderSide(color: hairlineColor, width: hairlineWidth),
         ),
-        padding: const EdgeInsets.symmetric(
-          horizontal: space12,
-          vertical: space8,
-        ),
+        padding: const EdgeInsets.symmetric(horizontal: space12, vertical: space8),
+        side: const BorderSide(color: hairlineColor, width: hairlineWidth),
+        showCheckmark: false,
       ),
 
-      // Card Theme - Elevated with accessible shadows
+      // Card — flat white slab with hairline border.
       cardTheme: CardThemeData(
         color: cardColor,
-        elevation: elevation1,
-        shadowColor: Colors.black26,
+        elevation: 0,
+        shadowColor: Colors.transparent,
+        surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(radiusLarge),
+          borderRadius: BorderRadius.circular(radiusSmall),
+          side: const BorderSide(color: hairlineColor, width: hairlineWidth),
         ),
         margin: EdgeInsets.zero,
       ),
 
-      // Input Decoration Theme - Accessible form fields
+      // Inputs — underline-only (newspaper field), no fill.
       inputDecorationTheme: InputDecorationTheme(
-        filled: true,
-        fillColor: cardColor,
+        filled: false,
         contentPadding: const EdgeInsets.symmetric(
-          horizontal: space16,
+          horizontal: 0,
           vertical: space12,
         ),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(radiusMedium),
-          borderSide: const BorderSide(color: textDisabled),
+        border: const UnderlineInputBorder(
+          borderSide: BorderSide(color: hairlineColor, width: hairlineWidth),
         ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(radiusMedium),
-          borderSide: const BorderSide(color: textDisabled),
+        enabledBorder: const UnderlineInputBorder(
+          borderSide: BorderSide(color: hairlineColor, width: hairlineWidth),
         ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(radiusMedium),
-          borderSide: const BorderSide(color: primaryColor, width: 2.0),
+        focusedBorder: const UnderlineInputBorder(
+          borderSide: BorderSide(color: primaryColor, width: 1.5),
         ),
-        errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(radiusMedium),
-          borderSide: const BorderSide(color: expenseColor),
+        errorBorder: const UnderlineInputBorder(
+          borderSide: BorderSide(color: expenseColor, width: hairlineWidth),
         ),
-        labelStyle: TextStyle(color: textSecondary),
+        focusedErrorBorder: const UnderlineInputBorder(
+          borderSide: BorderSide(color: expenseColor, width: 1.5),
+        ),
+        labelStyle: textTheme.labelMedium?.copyWith(
+          color: textSecondary,
+          letterSpacing: 1.4,
+        ),
+        floatingLabelStyle: textTheme.labelMedium?.copyWith(
+          color: primaryColor,
+          letterSpacing: 1.4,
+        ),
         helperStyle: textTheme.bodySmall,
         errorStyle: textTheme.bodySmall?.copyWith(color: expenseColor),
+        hintStyle: textTheme.bodyMedium?.copyWith(color: textSecondary),
+        prefixStyle: textTheme.bodyMedium,
+        prefixIconColor: textSecondary,
+        suffixIconColor: textSecondary,
       ),
 
-      // Filled Button Theme - Primary actions
+      // Filled button — square ink slab (or indigo accent).
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
-          backgroundColor: primaryColor,
-          foregroundColor: onPrimary,
+          backgroundColor: textPrimary,
+          foregroundColor: backgroundColor,
+          disabledBackgroundColor: textDisabled,
           minimumSize: const Size(minTouchTarget, minTouchTarget),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(radiusMedium),
+            borderRadius: BorderRadius.circular(radiusSmall),
           ),
           padding: const EdgeInsets.symmetric(
             horizontal: space24,
-            vertical: space12,
+            vertical: space16,
           ),
-          textStyle: textTheme.labelLarge,
-          elevation: elevation1,
+          textStyle: textTheme.labelLarge?.copyWith(letterSpacing: 0.6),
+          elevation: 0,
         ),
       ),
 
-      // Outlined Button Theme - Secondary actions
+      // Outlined button — hairline border.
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
-          foregroundColor: primaryColor,
+          foregroundColor: textPrimary,
           minimumSize: const Size(minTouchTarget, minTouchTarget),
-          side: const BorderSide(color: primaryColor, width: 1.5),
+          side: const BorderSide(color: textPrimary, width: hairlineWidth),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(radiusMedium),
+            borderRadius: BorderRadius.circular(radiusSmall),
           ),
           padding: const EdgeInsets.symmetric(
             horizontal: space24,
-            vertical: space12,
+            vertical: space16,
           ),
-          textStyle: textTheme.labelLarge,
+          textStyle: textTheme.labelLarge?.copyWith(letterSpacing: 0.6),
         ),
       ),
 
-      // Text Button Theme - Tertiary actions
+      // Text button — indigo accent only.
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
           foregroundColor: primaryColor,
-          minimumSize: const Size(minTouchTarget, minTouchTarget),
+          minimumSize: const Size(0, minTouchTarget),
           padding: const EdgeInsets.symmetric(
-            horizontal: space16,
+            horizontal: space12,
             vertical: space8,
           ),
-          textStyle: textTheme.labelLarge,
+          textStyle: textTheme.labelLarge?.copyWith(letterSpacing: 0.4),
         ),
       ),
 
-      // List Tile Theme
+      // List tile.
       listTileTheme: ListTileThemeData(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(radiusMedium),
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.zero,
         ),
-        iconColor: primaryColor,
+        iconColor: textPrimary,
         minVerticalPadding: space12,
         contentPadding: const EdgeInsets.symmetric(
-          horizontal: space16,
+          horizontal: 0,
           vertical: space8,
         ),
       ),
 
-      // Divider Theme
-      dividerTheme: DividerThemeData(
-        color: textDisabled.withOpacity(0.3),
-        thickness: 1,
-        space: space16,
+      // Divider — hairline.
+      dividerTheme: const DividerThemeData(
+        color: hairlineColor,
+        thickness: hairlineWidth,
+        space: space24,
+      ),
+      dividerColor: hairlineColor,
+
+      // Tab bar — flat with green underline (brand mark).
+      tabBarTheme: TabBarThemeData(
+        labelColor: textPrimary,
+        unselectedLabelColor: textSecondary,
+        labelStyle: textTheme.labelLarge?.copyWith(letterSpacing: 0.6),
+        unselectedLabelStyle: textTheme.labelLarge?.copyWith(letterSpacing: 0.6),
+        indicator: const UnderlineTabIndicator(
+          borderSide: BorderSide(color: accentGreen, width: 2),
+        ),
+        indicatorSize: TabBarIndicatorSize.label,
+        dividerColor: hairlineColor,
+        overlayColor: WidgetStateProperty.all(Colors.transparent),
       ),
 
-      // Bottom Navigation Bar Theme - Text only, clean minimal design
+      // Bottom nav — flat hairline-topped bar.
       navigationBarTheme: NavigationBarThemeData(
-        backgroundColor: cardColor,
-        elevation: elevation2,
-        height: 60,
-        labelTextStyle: MaterialStateProperty.resolveWith((states) {
-          if (states.contains(MaterialState.selected)) {
-            return textTheme.titleSmall?.copyWith(
-              color: primaryColor,
-              fontWeight: FontWeight.w700,
-              fontSize: 15,
+        backgroundColor: backgroundColor,
+        elevation: 0,
+        height: 64,
+        surfaceTintColor: Colors.transparent,
+        indicatorColor: Colors.transparent,
+        labelTextStyle: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) {
+            return textTheme.labelMedium?.copyWith(
+              color: textPrimary,
+              letterSpacing: 1.4,
             );
           }
           return textTheme.labelMedium?.copyWith(
             color: textSecondary,
-            fontSize: 13,
+            letterSpacing: 1.4,
           );
         }),
-        indicatorColor: primaryColor.withOpacity(0.1),
-        indicatorShape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(radiusMedium),
+      ),
+
+      // FAB.
+      floatingActionButtonTheme: const FloatingActionButtonThemeData(
+        backgroundColor: textPrimary,
+        foregroundColor: backgroundColor,
+        elevation: 0,
+        focusElevation: 0,
+        hoverElevation: 0,
+        highlightElevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.all(Radius.circular(radiusSmall)),
         ),
       ),
 
-      // Floating Action Button Theme
-      floatingActionButtonTheme: FloatingActionButtonThemeData(
-        backgroundColor: primaryColor,
-        foregroundColor: onPrimary,
-        elevation: elevation3,
+      // Dialog.
+      dialogTheme: DialogThemeData(
+        backgroundColor: cardColor,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(radiusLarge),
+          borderRadius: BorderRadius.circular(radiusSmall),
+          side: const BorderSide(color: hairlineColor, width: hairlineWidth),
+        ),
+        titleTextStyle: textTheme.headlineSmall,
+        contentTextStyle: textTheme.bodyMedium,
+      ),
+
+      // Bottom sheet.
+      bottomSheetTheme: const BottomSheetThemeData(
+        backgroundColor: backgroundColor,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(radiusSmall)),
+          side: BorderSide(color: hairlineColor, width: hairlineWidth),
         ),
       ),
+
+      // Progress.
+      progressIndicatorTheme: const ProgressIndicatorThemeData(
+        color: primaryColor,
+        linearTrackColor: hairlineColor,
+        circularTrackColor: hairlineColor,
+      ),
+
+      iconTheme: const IconThemeData(color: textPrimary, size: 22),
+      splashFactory: InkRipple.splashFactory,
+      splashColor: hairlineColor,
+      highlightColor: Colors.transparent,
     );
   }
 
   // ============================================================
-  // Dark Theme - Premium dark mode with careful color selection
+  // Theme Builder — Dark (Night Edition)
   // ============================================================
   static ThemeData darkTheme() {
     final base = ThemeData(
@@ -397,91 +556,108 @@ class AppTheme {
       scaffoldBackgroundColor: darkBackgroundColor,
     );
 
-    // Typography Scale with Plus Jakarta Sans
-    final textTheme = GoogleFonts.plusJakartaSansTextTheme(base.textTheme)
-        .copyWith(
-          // Headline - Hero numbers
-          headlineLarge: GoogleFonts.plusJakartaSans(
-            fontSize: 32,
-            fontWeight: FontWeight.w800,
-            height: 1.2,
-            color: darkTextPrimary,
-            letterSpacing: -0.5,
-          ),
-          headlineMedium: GoogleFonts.plusJakartaSans(
-            fontSize: 24,
-            fontWeight: FontWeight.w700,
-            height: 1.3,
-            color: darkTextPrimary,
-            letterSpacing: -0.3,
-          ),
-
-          // Title - Section headers
-          titleLarge: GoogleFonts.plusJakartaSans(
-            fontSize: 20,
-            fontWeight: FontWeight.w700,
-            height: 1.4,
-            color: darkTextPrimary,
-            letterSpacing: -0.2,
-          ),
-          titleMedium: GoogleFonts.plusJakartaSans(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-            height: 1.5,
-            color: darkTextPrimary,
-            letterSpacing: 0,
-          ),
-          titleSmall: GoogleFonts.plusJakartaSans(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-            height: 1.4,
-            color: darkTextPrimary,
-            letterSpacing: 0,
-          ),
-
-          // Body - Content text
-          bodyLarge: GoogleFonts.plusJakartaSans(
-            fontSize: 16,
-            fontWeight: FontWeight.w400,
-            height: 1.5,
-            color: darkTextPrimary,
-            letterSpacing: 0,
-          ),
-          bodyMedium: GoogleFonts.plusJakartaSans(
-            fontSize: 14,
-            fontWeight: FontWeight.w400,
-            height: 1.6,
-            color: darkTextPrimary,
-            letterSpacing: 0,
-          ),
-          bodySmall: GoogleFonts.plusJakartaSans(
-            fontSize: 12,
-            fontWeight: FontWeight.w400,
-            height: 1.5,
-            color: darkTextSecondary,
-            letterSpacing: 0,
-          ),
-
-          // Label - Buttons, captions, navigation
-          labelLarge: GoogleFonts.plusJakartaSans(
-            fontSize: 14,
-            fontWeight: FontWeight.w700,
-            height: 1.4,
-            letterSpacing: 0.2,
-          ),
-          labelMedium: GoogleFonts.plusJakartaSans(
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-            height: 1.3,
-            letterSpacing: 0.3,
-          ),
-          labelSmall: GoogleFonts.plusJakartaSans(
-            fontSize: 11,
-            fontWeight: FontWeight.w600,
-            height: 1.3,
-            letterSpacing: 0.3,
-          ),
-        );
+    final textTheme = GoogleFonts.interTextTheme(base.textTheme).copyWith(
+      displayLarge: GoogleFonts.spaceGrotesk(
+        fontSize: 44,
+        fontWeight: FontWeight.w600,
+        height: 1.05,
+        color: darkTextPrimary,
+        letterSpacing: -1.0,
+      ),
+      displayMedium: GoogleFonts.spaceGrotesk(
+        fontSize: 36,
+        fontWeight: FontWeight.w600,
+        height: 1.1,
+        color: darkTextPrimary,
+        letterSpacing: -0.8,
+      ),
+      displaySmall: GoogleFonts.spaceGrotesk(
+        fontSize: 28,
+        fontWeight: FontWeight.w600,
+        height: 1.15,
+        color: darkTextPrimary,
+        letterSpacing: -0.6,
+      ),
+      headlineLarge: GoogleFonts.spaceGrotesk(
+        fontSize: 32,
+        fontWeight: FontWeight.w600,
+        height: 1.15,
+        color: darkTextPrimary,
+        letterSpacing: -0.6,
+      ),
+      headlineMedium: GoogleFonts.spaceGrotesk(
+        fontSize: 24,
+        fontWeight: FontWeight.w600,
+        height: 1.2,
+        color: darkTextPrimary,
+        letterSpacing: -0.4,
+      ),
+      headlineSmall: GoogleFonts.spaceGrotesk(
+        fontSize: 20,
+        fontWeight: FontWeight.w600,
+        height: 1.25,
+        color: darkTextPrimary,
+        letterSpacing: -0.2,
+      ),
+      titleLarge: GoogleFonts.spaceGrotesk(
+        fontSize: 18,
+        fontWeight: FontWeight.w600,
+        height: 1.3,
+        color: darkTextPrimary,
+        letterSpacing: -0.1,
+      ),
+      titleMedium: GoogleFonts.inter(
+        fontSize: 15,
+        fontWeight: FontWeight.w600,
+        height: 1.4,
+        color: darkTextPrimary,
+      ),
+      titleSmall: GoogleFonts.inter(
+        fontSize: 13,
+        fontWeight: FontWeight.w600,
+        height: 1.4,
+        color: darkTextPrimary,
+      ),
+      bodyLarge: GoogleFonts.inter(
+        fontSize: 16,
+        fontWeight: FontWeight.w400,
+        height: 1.6,
+        color: darkTextPrimary,
+      ),
+      bodyMedium: GoogleFonts.inter(
+        fontSize: 14,
+        fontWeight: FontWeight.w400,
+        height: 1.6,
+        color: darkTextPrimary,
+      ),
+      bodySmall: GoogleFonts.inter(
+        fontSize: 12,
+        fontWeight: FontWeight.w400,
+        height: 1.5,
+        color: darkTextSecondary,
+      ),
+      labelLarge: GoogleFonts.inter(
+        fontSize: 13,
+        fontWeight: FontWeight.w600,
+        height: 1.3,
+        letterSpacing: 0.4,
+        color: darkTextPrimary,
+      ),
+      labelMedium: GoogleFonts.inter(
+        fontSize: 11,
+        fontWeight: FontWeight.w600,
+        height: 1.3,
+        letterSpacing: 1.4,
+        color: darkTextSecondary,
+      ),
+      labelSmall: GoogleFonts.inter(
+        fontSize: 10,
+        fontWeight: FontWeight.w600,
+        height: 1.3,
+        letterSpacing: 1.6,
+        color: darkTextSecondary,
+      ),
+    );
 
     return base.copyWith(
       colorScheme: base.colorScheme.copyWith(
@@ -490,195 +666,243 @@ class AppTheme {
         secondary: darkPrimaryColor,
         error: darkExpenseColor,
         surface: darkSurfaceColor,
-        onSurface: darkTextPrimary, // Text otomatis putih di surface
-        background: darkBackgroundColor,
-        onBackground: darkTextPrimary, // Text otomatis putih di background
+        onSurface: darkTextPrimary,
+        outline: darkHairlineColor,
+        outlineVariant: darkHairlineColor,
       ),
 
-      // AppBar Theme
       appBarTheme: AppBarTheme(
-        backgroundColor: darkSurfaceColor,
+        backgroundColor: darkBackgroundColor,
         foregroundColor: darkTextPrimary,
-        centerTitle: true,
+        centerTitle: false,
         elevation: 0,
-        titleTextStyle: textTheme.titleLarge?.copyWith(
-          color: darkTextPrimary,
+        scrolledUnderElevation: 0,
+        surfaceTintColor: Colors.transparent,
+        iconTheme: const IconThemeData(color: darkTextPrimary, size: 22),
+        actionsIconTheme: const IconThemeData(color: darkTextPrimary, size: 22),
+        titleTextStyle: GoogleFonts.spaceGrotesk(
           fontSize: 20,
+          fontWeight: FontWeight.w600,
+          color: darkTextPrimary,
+          letterSpacing: -0.2,
         ),
+        toolbarHeight: 64,
       ),
 
-      // Text Theme
       textTheme: textTheme,
 
-      // SnackBar Theme
       snackBarTheme: SnackBarThemeData(
         behavior: SnackBarBehavior.floating,
-        backgroundColor: darkCardColor,
+        backgroundColor: darkTextPrimary,
         contentTextStyle: textTheme.bodyMedium?.copyWith(
-          color: darkTextPrimary,
+          color: darkBackgroundColor,
         ),
+        elevation: 0,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(radiusMedium),
+          borderRadius: BorderRadius.circular(radiusSmall),
         ),
       ),
 
-      // Chip Theme
       chipTheme: ChipThemeData(
-        backgroundColor: darkPrimaryColor.withOpacity(0.15),
-        selectedColor: darkPrimaryColor,
-        labelStyle: textTheme.labelLarge,
-        shape: StadiumBorder(
-          side: BorderSide(color: darkPrimaryColor.withOpacity(0.3)),
+        backgroundColor: darkBackgroundColor,
+        selectedColor: darkTextPrimary,
+        labelStyle: textTheme.labelLarge?.copyWith(color: darkTextPrimary),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(radiusSmall),
+          side: const BorderSide(color: darkHairlineColor, width: hairlineWidth),
         ),
-        padding: const EdgeInsets.symmetric(
-          horizontal: space12,
-          vertical: space8,
-        ),
+        padding: const EdgeInsets.symmetric(horizontal: space12, vertical: space8),
+        side: const BorderSide(color: darkHairlineColor, width: hairlineWidth),
+        showCheckmark: false,
       ),
 
-      // Card Theme
       cardTheme: CardThemeData(
         color: darkCardColor,
         elevation: 0,
         shadowColor: Colors.transparent,
+        surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(radiusLarge),
-          side: BorderSide(color: darkTextDisabled.withOpacity(0.1), width: 1),
+          borderRadius: BorderRadius.circular(radiusSmall),
+          side: const BorderSide(color: darkHairlineColor, width: hairlineWidth),
         ),
         margin: EdgeInsets.zero,
       ),
 
-      // Input Decoration Theme
       inputDecorationTheme: InputDecorationTheme(
-        filled: true,
-        fillColor: darkSurfaceColor,
+        filled: false,
         contentPadding: const EdgeInsets.symmetric(
-          horizontal: space16,
+          horizontal: 0,
           vertical: space12,
         ),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(radiusMedium),
-          borderSide: BorderSide(color: darkTextDisabled),
+        border: const UnderlineInputBorder(
+          borderSide: BorderSide(color: darkHairlineColor, width: hairlineWidth),
         ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(radiusMedium),
-          borderSide: BorderSide(color: darkTextDisabled.withOpacity(0.3)),
+        enabledBorder: const UnderlineInputBorder(
+          borderSide: BorderSide(color: darkHairlineColor, width: hairlineWidth),
         ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(radiusMedium),
-          borderSide: const BorderSide(color: darkPrimaryColor, width: 2.0),
+        focusedBorder: const UnderlineInputBorder(
+          borderSide: BorderSide(color: darkPrimaryColor, width: 1.5),
         ),
-        errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(radiusMedium),
-          borderSide: const BorderSide(color: darkExpenseColor),
+        errorBorder: const UnderlineInputBorder(
+          borderSide: BorderSide(color: darkExpenseColor, width: hairlineWidth),
         ),
-        labelStyle: TextStyle(color: darkTextSecondary),
+        focusedErrorBorder: const UnderlineInputBorder(
+          borderSide: BorderSide(color: darkExpenseColor, width: 1.5),
+        ),
+        labelStyle: textTheme.labelMedium?.copyWith(
+          color: darkTextSecondary,
+          letterSpacing: 1.4,
+        ),
+        floatingLabelStyle: textTheme.labelMedium?.copyWith(
+          color: darkPrimaryColor,
+          letterSpacing: 1.4,
+        ),
         helperStyle: textTheme.bodySmall,
         errorStyle: textTheme.bodySmall?.copyWith(color: darkExpenseColor),
+        hintStyle: textTheme.bodyMedium?.copyWith(color: darkTextSecondary),
+        prefixStyle: textTheme.bodyMedium,
+        prefixIconColor: darkTextSecondary,
+        suffixIconColor: darkTextSecondary,
       ),
 
-      // Filled Button Theme
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
-          backgroundColor: darkPrimaryColor,
-          foregroundColor: darkOnPrimary,
+          backgroundColor: darkTextPrimary,
+          foregroundColor: darkBackgroundColor,
+          disabledBackgroundColor: darkTextDisabled,
           minimumSize: const Size(minTouchTarget, minTouchTarget),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(radiusMedium),
+            borderRadius: BorderRadius.circular(radiusSmall),
           ),
           padding: const EdgeInsets.symmetric(
             horizontal: space24,
-            vertical: space12,
+            vertical: space16,
           ),
-          textStyle: textTheme.labelLarge,
+          textStyle: textTheme.labelLarge?.copyWith(letterSpacing: 0.6),
           elevation: 0,
         ),
       ),
 
-      // Outlined Button Theme
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
-          foregroundColor: darkPrimaryColor,
+          foregroundColor: darkTextPrimary,
           minimumSize: const Size(minTouchTarget, minTouchTarget),
-          side: const BorderSide(color: darkPrimaryColor, width: 1.5),
+          side: const BorderSide(color: darkTextPrimary, width: hairlineWidth),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(radiusMedium),
+            borderRadius: BorderRadius.circular(radiusSmall),
           ),
           padding: const EdgeInsets.symmetric(
             horizontal: space24,
-            vertical: space12,
+            vertical: space16,
           ),
-          textStyle: textTheme.labelLarge,
+          textStyle: textTheme.labelLarge?.copyWith(letterSpacing: 0.6),
         ),
       ),
 
-      // Text Button Theme
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
           foregroundColor: darkPrimaryColor,
-          minimumSize: const Size(minTouchTarget, minTouchTarget),
+          minimumSize: const Size(0, minTouchTarget),
           padding: const EdgeInsets.symmetric(
-            horizontal: space16,
+            horizontal: space12,
             vertical: space8,
           ),
-          textStyle: textTheme.labelLarge,
+          textStyle: textTheme.labelLarge?.copyWith(letterSpacing: 0.4),
         ),
       ),
 
-      // List Tile Theme
-      listTileTheme: ListTileThemeData(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(radiusMedium),
-        ),
-        iconColor: darkPrimaryColor,
+      listTileTheme: const ListTileThemeData(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+        iconColor: darkTextPrimary,
         minVerticalPadding: space12,
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: space16,
-          vertical: space8,
+        contentPadding: EdgeInsets.symmetric(horizontal: 0, vertical: space8),
+      ),
+
+      dividerTheme: const DividerThemeData(
+        color: darkHairlineColor,
+        thickness: hairlineWidth,
+        space: space24,
+      ),
+      dividerColor: darkHairlineColor,
+
+      tabBarTheme: TabBarThemeData(
+        labelColor: darkTextPrimary,
+        unselectedLabelColor: darkTextSecondary,
+        labelStyle: textTheme.labelLarge?.copyWith(letterSpacing: 0.6),
+        unselectedLabelStyle: textTheme.labelLarge?.copyWith(letterSpacing: 0.6),
+        indicator: const UnderlineTabIndicator(
+          borderSide: BorderSide(color: darkAccentGreen, width: 2),
         ),
-        tileColor: darkSurfaceColor,
+        indicatorSize: TabBarIndicatorSize.label,
+        dividerColor: darkHairlineColor,
+        overlayColor: WidgetStateProperty.all(Colors.transparent),
       ),
 
-      // Divider Theme
-      dividerTheme: DividerThemeData(
-        color: darkTextDisabled.withOpacity(0.2),
-        thickness: 1,
-        space: space16,
-      ),
-
-      // Bottom Navigation Bar Theme
       navigationBarTheme: NavigationBarThemeData(
-        backgroundColor: darkCardColor,
+        backgroundColor: darkBackgroundColor,
         elevation: 0,
-        height: 60,
-        labelTextStyle: MaterialStateProperty.resolveWith((states) {
-          if (states.contains(MaterialState.selected)) {
-            return textTheme.titleSmall?.copyWith(
-              color: darkPrimaryColor,
-              fontWeight: FontWeight.w700,
-              fontSize: 15,
+        height: 64,
+        surfaceTintColor: Colors.transparent,
+        indicatorColor: Colors.transparent,
+        labelTextStyle: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) {
+            return textTheme.labelMedium?.copyWith(
+              color: darkTextPrimary,
+              letterSpacing: 1.4,
             );
           }
           return textTheme.labelMedium?.copyWith(
             color: darkTextSecondary,
-            fontSize: 13,
+            letterSpacing: 1.4,
           );
         }),
-        indicatorColor: darkPrimaryColor.withOpacity(0.15),
-        indicatorShape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(radiusMedium),
+      ),
+
+      floatingActionButtonTheme: const FloatingActionButtonThemeData(
+        backgroundColor: darkTextPrimary,
+        foregroundColor: darkBackgroundColor,
+        elevation: 0,
+        focusElevation: 0,
+        hoverElevation: 0,
+        highlightElevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.all(Radius.circular(radiusSmall)),
         ),
       ),
 
-      // Floating Action Button Theme
-      floatingActionButtonTheme: FloatingActionButtonThemeData(
-        backgroundColor: darkPrimaryColor,
-        foregroundColor: darkOnPrimary,
+      dialogTheme: DialogThemeData(
+        backgroundColor: darkCardColor,
+        surfaceTintColor: Colors.transparent,
         elevation: 0,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(radiusLarge),
+          borderRadius: BorderRadius.circular(radiusSmall),
+          side: const BorderSide(color: darkHairlineColor, width: hairlineWidth),
+        ),
+        titleTextStyle: textTheme.headlineSmall,
+        contentTextStyle: textTheme.bodyMedium,
+      ),
+
+      bottomSheetTheme: const BottomSheetThemeData(
+        backgroundColor: darkBackgroundColor,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(radiusSmall)),
+          side: BorderSide(color: darkHairlineColor, width: hairlineWidth),
         ),
       ),
+
+      progressIndicatorTheme: const ProgressIndicatorThemeData(
+        color: darkPrimaryColor,
+        linearTrackColor: darkHairlineColor,
+        circularTrackColor: darkHairlineColor,
+      ),
+
+      iconTheme: const IconThemeData(color: darkTextPrimary, size: 22),
+      splashFactory: InkRipple.splashFactory,
+      splashColor: darkHairlineColor,
+      highlightColor: Colors.transparent,
     );
   }
 }
+

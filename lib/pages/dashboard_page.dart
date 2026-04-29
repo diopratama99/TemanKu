@@ -1,14 +1,24 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../data/app_database.dart';
 import '../state/auth_notifier.dart';
 import '../theme/app_theme.dart';
+import '../utils/theme_utils.dart';
 import '../widgets/balance_card.dart';
+import '../widgets/editorial.dart';
 import '../widgets/state_widgets.dart';
 
-/// Modern minimalist dashboard - redesigned for better UX
+/// Editorial dashboard — paper-style magazine layout.
+///
+/// Section structure:
+///   Header (eyebrow EDISI · display "Beranda" · meta on right)
+///   Brankas (balance card)
+///   Fitur (feature grid — text-led with hairline borders)
+///   Ringkasan (goals + budgets editorial cards)
+///   Terkini (latest transactions as flat list rows)
 class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});
 
@@ -42,8 +52,7 @@ class _DashboardPageState extends State<DashboardPage> {
       return;
     }
 
-    final uid = user['id'] as int;
-    final data = await db.dashboardData(uid, _iso(_start), _iso(_end));
+    final data = await db.dashboardData(_iso(_start), _iso(_end));
     setState(() {
       _data = data;
       _loading = false;
@@ -53,150 +62,151 @@ class _DashboardPageState extends State<DashboardPage> {
   String _iso(DateTime d) => DateFormat('yyyy-MM-dd').format(d);
   String _money(num v) => 'Rp ${NumberFormat.decimalPattern('id').format(v)}';
 
+  // ============================================================
+  // Header & sections
+  // ============================================================
+
+  Widget _buildHeader() {
+    final auth = context.watch<AuthNotifier>();
+    final user = auth.user;
+    final name = (user?['name'] as String?)?.split(' ').first ?? 'Tamu';
+    final today = DateFormat('dd MMM yyyy', 'id').format(DateTime.now());
+    final edition = DateFormat('MMMM yyyy', 'id').format(DateTime.now()).toUpperCase();
+
+    return EditorialHeader(
+      eyebrow: 'EDISI $edition',
+      title: 'Beranda',
+      titleSize: 40,
+      metaEyebrow: 'TERBIT',
+      meta: '$today\n$name',
+    );
+  }
+
   Widget _buildFeatureMenu() {
-    final features = [
+    final features = <_FeatureItem>[
       _FeatureItem(
-        icon: Icons.receipt_long_outlined,
+        eyebrow: '01',
         label: 'Transaksi',
-        color: AppTheme.primaryColor,
+        caption: 'Riwayat lengkap',
+        icon: Icons.receipt_long_outlined,
         onTap: () => Navigator.pushNamed(context, '/transactions'),
       ),
       _FeatureItem(
-        icon: Icons.trending_up,
+        eyebrow: '02',
         label: 'Analisa Tren',
-        color: const Color(0xFF0EA5E9),
+        caption: 'Prediksi & korelasi',
+        icon: Icons.show_chart,
         onTap: () => Navigator.pushNamed(context, '/trend_analysis'),
       ),
       _FeatureItem(
-        icon: Icons.bar_chart_rounded,
+        eyebrow: '03',
         label: 'Perbandingan',
-        color: const Color(0xFF8B5CF6),
+        caption: 'Uji hipotesis bulan',
+        icon: Icons.bar_chart_rounded,
         onTap: () => Navigator.pushNamed(context, '/monthly_comparison'),
       ),
       _FeatureItem(
-        icon: Icons.category_outlined,
+        eyebrow: '04',
         label: 'Kategori',
-        color: const Color(0xFF7C3AED),
+        caption: 'Atur tag transaksi',
+        icon: Icons.label_outline,
         onTap: () => Navigator.pushNamed(context, '/categories'),
       ),
       _FeatureItem(
-        icon: Icons.savings_outlined,
+        eyebrow: '05',
         label: 'Tabungan',
-        color: const Color(0xFF10B981),
+        caption: 'Target dan alokasi',
+        icon: Icons.savings_outlined,
         onTap: () => Navigator.pushNamed(context, '/savings'),
       ),
       _FeatureItem(
-        icon: Icons.import_export,
-        label: 'Import/Export',
-        color: const Color(0xFFF59E0B),
+        eyebrow: '06',
+        label: 'Impor / Ekspor',
+        caption: 'CSV & cadangan',
+        icon: Icons.swap_vert,
         onTap: () => Navigator.pushNamed(context, '/import'),
       ),
     ];
 
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        AppTheme.space16,
-        AppTheme.space16,
-        AppTheme.space16,
-        0,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      AppTheme.primaryColor,
-                      AppTheme.primaryColor.withOpacity(0.7),
-                    ],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(12),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppTheme.primaryColor.withOpacity(0.3),
-                      blurRadius: 8,
-                      offset: const Offset(0, 3),
-                    ),
-                  ],
-                ),
-                child: const Icon(
-                  Icons.apps_rounded,
-                  color: Colors.white,
-                  size: 22,
-                ),
-              ),
-              const SizedBox(width: AppTheme.space12),
-              Text(
-                'Fitur Temanku',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
-                  color: Theme.of(context).textTheme.bodyLarge?.color,
-                ),
-              ),
-            ],
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const EditorialSectionHeader(
+          eyebrow: 'INDEKS',
+          title: 'Tata aplikasi',
+        ),
+        const Hairline(),
+        Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppTheme.pageGutter,
+            vertical: AppTheme.space20,
           ),
-          const SizedBox(height: AppTheme.space12),
-          GridView.count(
+          child: GridView.count(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
-            crossAxisCount: 3,
-            mainAxisSpacing: 8,
-            crossAxisSpacing: 8,
-            childAspectRatio: 0.95,
+            crossAxisCount: 2,
+            mainAxisSpacing: 0,
+            crossAxisSpacing: 0,
+            childAspectRatio: 1.6,
             children: features
-                .map((item) => _FeatureMenuCard(item: item))
+                .map((item) => _FeatureCell(item: item))
                 .toList(),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
   @override
   Widget build(BuildContext context) {
     context.watch<AuthNotifier>();
+    final paper = ThemeUtils.getBackgroundColor(context);
 
-    return _loading
-        ? const LoadingStateWidget(message: 'Memuat dashboard...')
-        : RefreshIndicator(
-            onRefresh: _load,
-            child: _data == null
-                ? EmptyStateWidget(
-                    icon: Icons.account_balance_wallet_outlined,
-                    title: 'Belum Ada Data',
-                    description: 'Mulai tambahkan transaksi pertama Anda',
-                    actionLabel: 'Tambah Transaksi',
-                    onAction: () => Navigator.pushNamed(context, '/add'),
-                  )
-                : ListView(
-                    padding: const EdgeInsets.only(bottom: AppTheme.space24),
-                    children: [
-                      // Modern Balance Card
-                      ModernBalanceCard(
-                        balance: _data!['net'] as num,
-                        income: _data!['income'] as num,
-                        expense: _data!['expense'] as num,
-                        onTap: () => Navigator.pushNamed(context, '/accounts'),
-                      ),
+    if (_loading) {
+      return Container(
+        color: paper,
+        child: const LoadingStateWidget(message: 'Menyiapkan halaman...'),
+      );
+    }
 
-                      // Feature Menu Grid
-                      _buildFeatureMenu(),
+    if (_data == null) {
+      return Container(
+        color: paper,
+        child: EmptyStateWidget(
+          eyebrow: 'BELUM ADA EDISI',
+          icon: Icons.account_balance_wallet_outlined,
+          title: 'Halaman masih kosong',
+          description:
+              'Mulai catat transaksi pertama untuk membuka edisi keuanganmu.',
+          actionLabel: 'Tulis transaksi',
+          onAction: () => Navigator.pushNamed(context, '/add'),
+        ),
+      );
+    }
 
-                      // Quick Stats (Goals & Budgets)
-                      _buildQuickStats(),
-
-                      // Recent Transactions
-                      _buildRecentTransactions(),
-                    ],
-                  ),
-          );
+    return Container(
+      color: paper,
+      child: RefreshIndicator(
+        onRefresh: _load,
+        child: ListView(
+          padding: const EdgeInsets.only(bottom: AppTheme.space64),
+          physics: const AlwaysScrollableScrollPhysics(),
+          children: [
+            _buildHeader(),
+            ModernBalanceCard(
+              balance: _data!['net'] as num,
+              income: _data!['income'] as num,
+              expense: _data!['expense'] as num,
+              onTap: () => Navigator.pushNamed(context, '/accounts'),
+            ),
+            const Hairline(),
+            _buildFeatureMenu(),
+            _buildQuickStats(),
+            _buildRecentTransactions(),
+          ],
+        ),
+      ),
+    );
   }
 
   Widget _buildQuickStats() {
@@ -204,578 +214,441 @@ class _DashboardPageState extends State<DashboardPage> {
       _data!['active_goals'] as List,
     );
     final budgets = List<Map<String, dynamic>>.from(_data!['budgets'] as List);
+    final secondary = ThemeUtils.getTextSecondary(context);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const EditorialSectionHeader(
+          eyebrow: 'RINGKASAN',
+          title: 'Target & anggaran',
+        ),
+        const Hairline(),
+        if (goals.isEmpty && budgets.isEmpty)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              AppTheme.pageGutter,
+              AppTheme.space24,
+              AppTheme.pageGutter,
+              AppTheme.space32,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Belum ada angka untuk ditampilkan.',
+                  style: AppTheme.pullQuote(color: secondary),
+                ),
+                const SizedBox(height: AppTheme.space16),
+                Text(
+                  'Tambahkan target tabungan atau atur batas pengeluaran '
+                  'kategori untuk mulai melacak progres.',
+                  style: GoogleFonts.inter(
+                    fontSize: 13,
+                    color: secondary,
+                    height: 1.6,
+                  ),
+                ),
+                const SizedBox(height: AppTheme.space16),
+                OutlinedButton(
+                  onPressed: () => Navigator.pushNamed(context, '/savings'),
+                  child: const Text('ATUR TARGET'),
+                ),
+              ],
+            ),
+          )
+        else ...[
+          if (goals.isNotEmpty) _buildGoalsSection(goals),
+          if (budgets.isNotEmpty) _buildBudgetsSection(budgets),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildGoalsSection(List<Map<String, dynamic>> goals) {
+    final ink = ThemeUtils.getTextPrimary(context);
+    final secondary = ThemeUtils.getTextSecondary(context);
+    final incomeColor = ThemeUtils.getIncomeColor(context);
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(
-        AppTheme.space16,
-        AppTheme.space16,
-        AppTheme.space16,
-        0,
+        AppTheme.pageGutter,
+        AppTheme.space20,
+        AppTheme.pageGutter,
+        AppTheme.space12,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      const Color(0xFF10B981),
-                      const Color(0xFF10B981).withOpacity(0.7),
-                    ],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(12),
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0xFF10B981).withOpacity(0.3),
-                      blurRadius: 8,
-                      offset: const Offset(0, 3),
-                    ),
-                  ],
-                ),
-                child: const Icon(
-                  Icons.assessment_rounded,
-                  color: Colors.white,
-                  size: 22,
-                ),
+              AccentBar(
+                width: 16,
+                height: 2,
+                color: ThemeUtils.getAccentGreen(context),
               ),
-              const SizedBox(width: AppTheme.space12),
-              Text(
-                'Ringkasan Keuangan',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
-                  color: Theme.of(context).textTheme.bodyLarge?.color,
+              const SizedBox(width: AppTheme.space8),
+              const Eyebrow('TABUNGAN'),
+              const Spacer(),
+              GestureDetector(
+                onTap: () => Navigator.pushNamed(context, '/savings'),
+                child: Row(
+                  children: [
+                    Eyebrow('LIHAT', color: secondary, size: 10),
+                    const SizedBox(width: 4),
+                    Icon(Icons.arrow_forward, size: 12, color: secondary),
+                  ],
                 ),
               ),
             ],
           ),
-          const SizedBox(height: AppTheme.space16),
+          const SizedBox(height: AppTheme.space12),
+          ...goals.take(2).map((g) {
+            final allocated = (g['allocated'] as num? ?? 0).toDouble();
+            final target = (g['target_amount'] as num? ?? 0).toDouble();
+            final progress = target > 0 ? (allocated / target).clamp(0.0, 1.0) : 0.0;
+            final percent = (progress * 100).toInt();
 
-          // Goals & Budgets in clean cards
-          if (goals.isNotEmpty || budgets.isNotEmpty) ...[
-            if (goals.isNotEmpty) _buildGoalsCard(goals),
-            const SizedBox(height: AppTheme.space12),
-            if (budgets.isNotEmpty) _buildBudgetsCard(budgets),
-          ] else
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppTheme.space16,
-                  vertical: AppTheme.space32,
-                ),
-                child: Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.center,
+            return Padding(
+              padding: const EdgeInsets.only(bottom: AppTheme.space16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [
-                              AppTheme.textSecondary,
-                              AppTheme.textSecondary.withOpacity(0.7),
-                            ],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
+                      Expanded(
+                        child: Text(
+                          g['name'] as String,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.spaceGrotesk(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: ink,
                           ),
-                          borderRadius: BorderRadius.circular(16),
-                          boxShadow: [
-                            BoxShadow(
-                              color: AppTheme.textSecondary.withOpacity(0.3),
-                              blurRadius: 8,
-                              offset: const Offset(0, 3),
-                            ),
-                          ],
-                        ),
-                        child: const Icon(
-                          Icons.track_changes,
-                          size: 48,
-                          color: Colors.white,
                         ),
                       ),
-                      const SizedBox(height: AppTheme.space12),
-                      const Text(
-                        'Belum Ada Target',
-                        style: TextStyle(
+                      Text(
+                        '$percent%',
+                        style: GoogleFonts.spaceGrotesk(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
+                          color: incomeColor,
                         ),
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: AppTheme.space8),
-                      Text(
-                        'Mulai atur anggaran dan tabungan Anda',
-                        style: TextStyle(color: AppTheme.textSecondary),
-                        textAlign: TextAlign.center,
                       ),
                     ],
                   ),
-                ),
+                  const SizedBox(height: AppTheme.space8),
+                  LinearProgressIndicator(
+                    value: progress,
+                    minHeight: 2,
+                    backgroundColor: ThemeUtils.isDarkMode(context)
+                        ? AppTheme.darkHairlineColor
+                        : AppTheme.hairlineColor,
+                    valueColor: AlwaysStoppedAnimation(incomeColor),
+                  ),
+                  const SizedBox(height: AppTheme.space8),
+                  Text(
+                    '${_money(allocated)} dari ${_money(target)}',
+                    style: GoogleFonts.inter(
+                      fontSize: 12,
+                      color: secondary,
+                    ),
+                  ),
+                ],
               ),
-            ),
+            );
+          }),
         ],
       ),
     );
   }
 
-  Widget _buildGoalsCard(List<Map<String, dynamic>> goals) {
-    return Card(
-      child: InkWell(
-        onTap: () => Navigator.pushNamed(context, '/savings'),
-        borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-        child: Padding(
-          padding: const EdgeInsets.all(AppTheme.space16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [
-                              AppTheme.incomeColor,
-                              AppTheme.incomeColor.withOpacity(0.7),
-                            ],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                          borderRadius: BorderRadius.circular(12),
-                          boxShadow: [
-                            BoxShadow(
-                              color: AppTheme.incomeColor.withOpacity(0.3),
-                              blurRadius: 8,
-                              offset: const Offset(0, 3),
-                            ),
-                          ],
-                        ),
-                        child: const Icon(
-                          Icons.savings_outlined,
-                          color: Colors.white,
-                          size: 22,
-                        ),
-                      ),
-                      const SizedBox(width: AppTheme.space12),
-                      Text(
-                        'Tabungan',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: Theme.of(context).textTheme.bodyLarge?.color,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const Icon(
-                    Icons.arrow_forward_ios,
-                    size: 16,
-                    color: AppTheme.textSecondary,
-                  ),
-                ],
-              ),
-              const SizedBox(height: AppTheme.space16),
-              ...goals.take(2).map((g) {
-                final allocated = (g['allocated'] as num? ?? 0).toDouble();
-                final target = (g['target_amount'] as num? ?? 0).toDouble();
-                final progress = target > 0
-                    ? (allocated / target).clamp(0.0, 1.0)
-                    : 0.0;
+  Widget _buildBudgetsSection(List<Map<String, dynamic>> budgets) {
+    final ink = ThemeUtils.getTextPrimary(context);
+    final secondary = ThemeUtils.getTextSecondary(context);
+    final expenseColor = ThemeUtils.getExpenseColor(context);
 
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: AppTheme.space12),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Expanded(
-                            child: Text(
-                              g['name'] as String,
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w500,
-                                color: Theme.of(
-                                  context,
-                                ).textTheme.bodyMedium?.color,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          Text(
-                            '${(progress * 100).toInt()}%',
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: AppTheme.incomeColor,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 6),
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(4),
-                        child: LinearProgressIndicator(
-                          value: progress,
-                          minHeight: 6,
-                          backgroundColor: AppTheme.incomeColor.withOpacity(
-                            0.1,
-                          ),
-                          valueColor: const AlwaysStoppedAnimation(
-                            AppTheme.incomeColor,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        '${_money(allocated)} / ${_money(target)}',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: AppTheme.textSecondary,
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              }),
-            ],
+    return Container(
+      decoration: BoxDecoration(
+        border: Border(
+          top: BorderSide(
+            color: ThemeUtils.isDarkMode(context)
+                ? AppTheme.darkHairlineColor
+                : AppTheme.hairlineColor,
+            width: AppTheme.hairlineWidth,
           ),
         ),
       ),
-    );
-  }
-
-  Widget _buildBudgetsCard(List<Map<String, dynamic>> budgets) {
-    return Card(
-      child: InkWell(
-        onTap: () => Navigator.pushNamed(context, '/budgets'),
-        borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-        child: Padding(
-          padding: const EdgeInsets.all(AppTheme.space16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+      padding: const EdgeInsets.fromLTRB(
+        AppTheme.pageGutter,
+        AppTheme.space20,
+        AppTheme.pageGutter,
+        AppTheme.space20,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
             children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              const Eyebrow('BUDGET'),
+              const Spacer(),
+              GestureDetector(
+                onTap: () => Navigator.pushNamed(context, '/budgets'),
+                child: Row(
+                  children: [
+                    Eyebrow('LIHAT', color: secondary, size: 10),
+                    const SizedBox(width: 4),
+                    Icon(Icons.arrow_forward, size: 12, color: secondary),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppTheme.space12),
+          ...budgets.take(2).map((b) {
+            final spent = (b['spent'] as num? ?? 0).toDouble();
+            final limit = (b['limit_amount'] as num? ?? 0).toDouble();
+            final progress = limit > 0 ? (spent / limit).clamp(0.0, 1.0) : 0.0;
+            final percent = (progress * 100).toInt();
+            final isOver = progress > 0.9;
+
+            return Padding(
+              padding: const EdgeInsets.only(bottom: AppTheme.space16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [
-                              AppTheme.expenseColor,
-                              AppTheme.expenseColor.withOpacity(0.7),
-                            ],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
+                      Expanded(
+                        child: Text(
+                          b['category'] as String,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.spaceGrotesk(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: ink,
                           ),
-                          borderRadius: BorderRadius.circular(12),
-                          boxShadow: [
-                            BoxShadow(
-                              color: AppTheme.expenseColor.withOpacity(0.3),
-                              blurRadius: 8,
-                              offset: const Offset(0, 3),
-                            ),
-                          ],
-                        ),
-                        child: const Icon(
-                          Icons.pie_chart,
-                          color: Colors.white,
-                          size: 22,
                         ),
                       ),
-                      const SizedBox(width: AppTheme.space12),
                       Text(
-                        'Budgeting Bulan Ini',
-                        style: TextStyle(
+                        '$percent%',
+                        style: GoogleFonts.spaceGrotesk(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
-                          color: Theme.of(context).textTheme.bodyLarge?.color,
+                          color: isOver ? expenseColor : ink,
                         ),
                       ),
                     ],
                   ),
-                  const Icon(
-                    Icons.arrow_forward_ios,
-                    size: 16,
-                    color: AppTheme.textSecondary,
+                  const SizedBox(height: AppTheme.space8),
+                  LinearProgressIndicator(
+                    value: progress,
+                    minHeight: 2,
+                    backgroundColor: ThemeUtils.isDarkMode(context)
+                        ? AppTheme.darkHairlineColor
+                        : AppTheme.hairlineColor,
+                    valueColor: AlwaysStoppedAnimation(
+                      isOver ? expenseColor : ink,
+                    ),
+                  ),
+                  const SizedBox(height: AppTheme.space8),
+                  Text(
+                    '${_money(spent)} dari ${_money(limit)}',
+                    style: GoogleFonts.inter(
+                      fontSize: 12,
+                      color: secondary,
+                    ),
                   ),
                 ],
               ),
-              const SizedBox(height: AppTheme.space16),
-              ...budgets.take(2).map((b) {
-                final spent = (b['spent'] as num? ?? 0).toDouble();
-                final limit = (b['limit_amount'] as num? ?? 0).toDouble();
-                final progress = limit > 0
-                    ? (spent / limit).clamp(0.0, 1.0)
-                    : 0.0;
-                final isOverBudget = progress > 0.9;
-
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: AppTheme.space12),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Expanded(
-                            child: Text(
-                              b['category'] as String,
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w500,
-                                color: Theme.of(
-                                  context,
-                                ).textTheme.bodyMedium?.color,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          Text(
-                            '${(progress * 100).toInt()}%',
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: isOverBudget
-                                  ? AppTheme.expenseColor
-                                  : AppTheme.textSecondary,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 6),
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(4),
-                        child: LinearProgressIndicator(
-                          value: progress,
-                          minHeight: 6,
-                          backgroundColor: AppTheme.expenseColor.withOpacity(
-                            0.1,
-                          ),
-                          valueColor: AlwaysStoppedAnimation(
-                            isOverBudget
-                                ? AppTheme.expenseColor
-                                : AppTheme.neutralColor,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        '${_money(spent)} / ${_money(limit)}',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: AppTheme.textSecondary,
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              }),
-            ],
-          ),
-        ),
+            );
+          }),
+        ],
       ),
     );
   }
 
   Widget _buildRecentTransactions() {
     final recent = _data!['recent'] as List?;
+    if (recent == null || recent.isEmpty) return const SizedBox.shrink();
 
-    if (recent == null || recent.isEmpty) {
-      return const SizedBox.shrink();
-    }
+    final ink = ThemeUtils.getTextPrimary(context);
+    final secondary = ThemeUtils.getTextSecondary(context);
 
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        AppTheme.space16,
-        AppTheme.space24,
-        AppTheme.space16,
-        0,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Transaksi Terbaru',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w700,
-                  color: Theme.of(context).textTheme.bodyLarge?.color,
-                ),
-              ),
-              TextButton(
-                onPressed: () => Navigator.pushNamed(context, '/transactions'),
-                child: const Text('Lihat Semua'),
-              ),
-            ],
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        EditorialSectionHeader(
+          eyebrow: 'TERKINI',
+          title: 'Catatan terbaru',
+          trailing: TextButton(
+            onPressed: () => Navigator.pushNamed(context, '/transactions'),
+            child: const Text('SEMUA'),
           ),
-          const SizedBox(height: AppTheme.space12),
-          ...recent.take(5).map((r) => _buildTransactionItem(r)),
-        ],
-      ),
+        ),
+        const Hairline(),
+        ...recent.take(5).map((t) => _buildEditorialTransactionRow(t, ink, secondary)),
+      ],
     );
   }
 
-  Widget _buildTransactionItem(Map<String, dynamic> transaction) {
-    final isIncome = transaction['type'] == 'income';
-    final amount = transaction['amount'] as num;
-    final category = transaction['category'] as String? ?? 'Lainnya';
-    final date = DateFormat(
-      'dd MMM',
-    ).format(DateFormat('yyyy-MM-dd').parse(transaction['date'] as String));
+  Widget _buildEditorialTransactionRow(
+    Map<String, dynamic> t,
+    Color ink,
+    Color secondary,
+  ) {
+    final isIncome = t['type'] == 'income';
+    final amount = t['amount'] as num;
+    final category = t['category'] as String? ?? 'Lainnya';
+    final emoji = t['category_emoji'] as String? ?? '•';
+    final date = DateFormat('dd MMM', 'id')
+        .format(DateFormat('yyyy-MM-dd').parse(t['date'] as String));
+    final amountColor = isIncome
+        ? ThemeUtils.getIncomeColor(context)
+        : ThemeUtils.getExpenseColor(context);
 
-    return Card(
-      margin: const EdgeInsets.only(bottom: AppTheme.space8),
-      child: InkWell(
-        onTap: () => Navigator.pushNamed(context, '/transactions'),
-        borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-        child: Padding(
-          padding: const EdgeInsets.all(AppTheme.space12),
-          child: Row(
-            children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color:
-                      (isIncome ? AppTheme.incomeColor : AppTheme.expenseColor)
-                          .withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(10),
+    return Column(
+      children: [
+        InkWell(
+          onTap: () => Navigator.pushNamed(context, '/transactions'),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppTheme.pageGutter,
+              vertical: AppTheme.space20,
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                SizedBox(
+                  width: 28,
+                  child: Text(emoji, style: const TextStyle(fontSize: 20)),
                 ),
-                child: Icon(
-                  isIncome ? Icons.arrow_downward : Icons.arrow_upward,
-                  color: isIncome
-                      ? AppTheme.incomeColor
-                      : AppTheme.expenseColor,
-                  size: 20,
-                ),
-              ),
-              const SizedBox(width: AppTheme.space12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      category,
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: Theme.of(context).textTheme.bodyLarge?.color,
+                const SizedBox(width: AppTheme.space12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Eyebrow(
+                        isIncome ? 'PEMASUKAN · $date' : 'PENGELUARAN · $date',
+                        color: secondary,
+                        size: 10,
                       ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      date,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: AppTheme.textSecondary,
+                      const SizedBox(height: AppTheme.space4),
+                      Text(
+                        category,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.spaceGrotesk(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: -0.2,
+                          color: ink,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-              Text(
-                '${isIncome ? '+' : '-'} ${_money(amount)}',
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w700,
-                  color: isIncome
-                      ? AppTheme.incomeColor
-                      : AppTheme.expenseColor,
+                Text(
+                  '${isIncome ? '+' : '−'} ${_money(amount)}',
+                  style: GoogleFonts.spaceGrotesk(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: -0.2,
+                    color: amountColor,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
-      ),
+        const Hairline(),
+      ],
     );
   }
 }
 
-// Feature Item Data Class
 class _FeatureItem {
-  final IconData icon;
+  final String eyebrow;
   final String label;
-  final Color color;
+  final String caption;
+  final IconData icon;
   final VoidCallback onTap;
 
   _FeatureItem({
-    required this.icon,
+    required this.eyebrow,
     required this.label,
-    required this.color,
+    required this.caption,
+    required this.icon,
     required this.onTap,
   });
 }
 
-// Feature Menu Card Widget
-class _FeatureMenuCard extends StatelessWidget {
+/// Editorial feature cell — hairline grid, eyebrow number + title + caption.
+class _FeatureCell extends StatelessWidget {
   final _FeatureItem item;
 
-  const _FeatureMenuCard({required this.item});
+  const _FeatureCell({required this.item});
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: item.onTap,
-      borderRadius: BorderRadius.circular(20),
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.transparent,
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [item.color, item.color.withOpacity(0.7)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(22),
-                boxShadow: [
-                  BoxShadow(
-                    color: item.color.withOpacity(0.35),
-                    blurRadius: 12,
-                    offset: const Offset(0, 4),
-                  ),
+    final ink = ThemeUtils.getTextPrimary(context);
+    final secondary = ThemeUtils.getTextSecondary(context);
+    final hairline = ThemeUtils.isDarkMode(context)
+        ? AppTheme.darkHairlineColor
+        : AppTheme.hairlineColor;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: item.onTap,
+        child: Container(
+          decoration: BoxDecoration(
+            border: Border(
+              right: BorderSide(color: hairline, width: AppTheme.hairlineWidth),
+              bottom: BorderSide(color: hairline, width: AppTheme.hairlineWidth),
+            ),
+          ),
+          padding: const EdgeInsets.all(AppTheme.space12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Eyebrow(item.eyebrow, color: secondary, size: 10),
+                  Icon(item.icon, size: 18, color: ink),
                 ],
               ),
-              child: Icon(item.icon, color: Colors.white, size: 36),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              item.label,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 11.5,
-                fontWeight: FontWeight.w600,
-                color: Theme.of(context).textTheme.bodyMedium?.color,
+              const Spacer(),
+              Text(
+                item.label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: GoogleFonts.spaceGrotesk(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: -0.2,
+                  color: ink,
+                ),
               ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ],
+              const SizedBox(height: AppTheme.space4),
+              Text(
+                item.caption,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: GoogleFonts.inter(
+                  fontSize: 11,
+                  color: secondary,
+                  height: 1.3,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

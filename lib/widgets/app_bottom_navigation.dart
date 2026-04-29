@@ -1,7 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
-/// Material 3 Bottom Navigation for mobile layout
-/// Replaces drawer navigation for better thumb-zone accessibility
+import '../theme/app_theme.dart';
+import '../utils/theme_utils.dart';
+
+/// Editorial bottom navigation — flat hairline-topped bar.
+///
+/// 5 items, each rendered as small icon + uppercase tracked label.
+/// Selected items get an indigo accent underline above the label.
+/// The middle "TULIS" item is rendered with the indigo accent
+/// to stand out as a primary action (replaces the floating FAB).
 class AppBottomNavigation extends StatelessWidget {
   final int currentIndex;
   final ValueChanged<int> onDestinationSelected;
@@ -14,168 +22,146 @@ class AppBottomNavigation extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final primaryColor = theme.colorScheme.primary;
-    // Respect device bottom insets (e.g., 3-button navigation bar)
-    final bottomInset = MediaQuery.of(context).padding.bottom;
-    const navBarHeight = 70.0;
-    const fabSize = 64.0;
-    const fabLift = 12.0; // angkat sedikit agar lebih "floating"
+    final isDark = ThemeUtils.isDarkMode(context);
+    final paper = ThemeUtils.getBackgroundColor(context);
+    final hairline = isDark ? AppTheme.darkHairlineColor : AppTheme.hairlineColor;
 
     return Semantics(
       label: 'Navigasi utama aplikasi',
-      child: Stack(
-        clipBehavior: Clip.none,
-        alignment: Alignment.bottomCenter,
-        children: [
-          // Bottom nav bar
-          Container(
-            decoration: BoxDecoration(
-              color: theme.colorScheme.surface,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.08),
-                  blurRadius: 16,
-                  offset: const Offset(0, -4),
-                ),
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.04),
-                  blurRadius: 4,
-                  offset: const Offset(0, -1),
-                ),
-              ],
+      child: Container(
+        color: paper,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Thin green brand rule, then standard hairline.
+            Container(
+              height: 1,
+              color: ThemeUtils.getAccentGreen(context),
             ),
-            child: SafeArea(
+            Container(height: AppTheme.hairlineWidth, color: hairline),
+            SafeArea(
+              top: false,
               child: SizedBox(
-                height: navBarHeight,
+                height: 70,
                 child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
                   children: [
-                    _NavItem(
-                      icon: Icons.dashboard_rounded,
-                      tooltip: 'Dashboard',
-                      isSelected: currentIndex == 0,
-                      onTap: () => onDestinationSelected(0),
-                    ),
-                    _NavItem(
-                      icon: Icons.bar_chart_rounded,
-                      tooltip: 'Statistik',
-                      isSelected: currentIndex == 1,
-                      onTap: () => onDestinationSelected(1),
-                    ),
-                    // Spacer for center FAB
-                    const SizedBox(width: 56),
-                    _NavItem(
-                      icon: Icons.pie_chart_rounded,
-                      tooltip: 'Budgeting',
-                      isSelected: currentIndex == 3,
-                      onTap: () => onDestinationSelected(3),
-                    ),
-                    _NavItem(
-                      icon: Icons.person_rounded,
-                      tooltip: 'Profil',
-                      isSelected: currentIndex == 4,
-                      onTap: () => onDestinationSelected(4),
-                    ),
+                _NavItem(
+                  icon: Icons.home_outlined,
+                  iconActive: Icons.home,
+                  label: 'BERANDA',
+                  isSelected: currentIndex == 0,
+                  onTap: () => onDestinationSelected(0),
+                ),
+                _NavItem(
+                  icon: Icons.show_chart,
+                  iconActive: Icons.bar_chart_rounded,
+                  label: 'ANALISA',
+                  isSelected: currentIndex == 1,
+                  onTap: () => onDestinationSelected(1),
+                ),
+                _NavItem(
+                  icon: Icons.add_circle_outline,
+                  iconActive: Icons.add_circle,
+                  label: 'TULIS',
+                  isSelected: currentIndex == 2,
+                  onTap: () => onDestinationSelected(2),
+                  isAccent: true,
+                ),
+                _NavItem(
+                  icon: Icons.pie_chart_outline,
+                  iconActive: Icons.pie_chart,
+                  label: 'BUDGET',
+                  isSelected: currentIndex == 3,
+                  onTap: () => onDestinationSelected(3),
+                ),
+                _NavItem(
+                  icon: Icons.person_outline,
+                  iconActive: Icons.person,
+                  label: 'PROFIL',
+                  isSelected: currentIndex == 4,
+                  onTap: () => onDestinationSelected(4),
+                ),
                   ],
                 ),
               ),
             ),
-          ),
-          // Floating center button
-          Positioned(
-            // Center FAB vertically with other icons inside the nav bar
-            // and adapt to any system bottom inset.
-            // Formula: center target (bottomInset + navBarHeight/2)
-            // minus half of the FAB size to get the distance to the FAB bottom.
-            bottom: bottomInset + (navBarHeight / 2) - (fabSize / 2) + fabLift,
-            child: Container(
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: primaryColor.withOpacity(0.3),
-                    blurRadius: 12,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: Material(
-                color: primaryColor,
-                shape: const CircleBorder(),
-                child: Tooltip(
-                  message: 'Tambah Transaksi',
-                  child: InkWell(
-                    onTap: () => onDestinationSelected(2),
-                    customBorder: const CircleBorder(),
-                    child: Container(
-                      width: fabSize,
-                      height: fabSize,
-                      alignment: Alignment.center,
-                      child: const Icon(
-                        Icons.add_rounded,
-                        color: Colors.white,
-                        size: 32,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 }
 
-/// Custom navigation item - icon only for clean minimalist design
+/// Single nav item — icon over uppercase tracked label,
+/// 2px green top rule when selected.
 class _NavItem extends StatelessWidget {
   final IconData icon;
-  final String tooltip;
+  final IconData iconActive;
+  final String label;
   final bool isSelected;
+  final bool isAccent;
   final VoidCallback onTap;
 
   const _NavItem({
     required this.icon,
-    required this.tooltip,
+    required this.iconActive,
+    required this.label,
     required this.isSelected,
     required this.onTap,
+    this.isAccent = false,
   });
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final primaryColor = theme.colorScheme.primary;
-    final iconColor = isSelected ? primaryColor : Colors.grey.shade600;
+    final accent = ThemeUtils.getPrimaryColor(context);
+    final green = ThemeUtils.getAccentGreen(context);
+    final ink = ThemeUtils.getTextPrimary(context);
+    final secondary = ThemeUtils.getTextSecondary(context);
+
+    final baseColor = isAccent ? accent : (isSelected ? ink : secondary);
 
     return Expanded(
       child: Tooltip(
-        message: tooltip,
+        message: label,
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(12),
-          splashColor: primaryColor.withOpacity(0.1),
-          highlightColor: primaryColor.withOpacity(0.05),
-          child: Container(
-            padding: const EdgeInsets.symmetric(vertical: 12),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(icon, size: isSelected ? 28 : 24, color: iconColor),
-                const SizedBox(height: 4),
-                AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  height: 3,
-                  width: isSelected ? 20 : 0,
-                  decoration: BoxDecoration(
-                    color: primaryColor,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
+          splashColor: Colors.transparent,
+          highlightColor: Colors.transparent,
+          child: Stack(
+            children: [
+              // Top green rule for selected item — brand mark.
+              if (isSelected)
+                Positioned(
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  child: Container(height: 2, color: green),
                 ),
-              ],
-            ),
+              Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      isSelected ? iconActive : icon,
+                      size: 22,
+                      color: baseColor,
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      label,
+                      style: GoogleFonts.inter(
+                        fontSize: 9.5,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 1.6,
+                        color: baseColor,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
         ),
       ),
@@ -183,7 +169,8 @@ class _NavItem extends StatelessWidget {
   }
 }
 
-/// Navigation rail for tablet/desktop layouts
+/// Navigation rail for tablet/desktop layouts — editorial style
+/// with hairline divider and tracked labels.
 class AppNavigationRail extends StatelessWidget {
   final int currentIndex;
   final ValueChanged<int> onDestinationSelected;
@@ -196,38 +183,57 @@ class AppNavigationRail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     return NavigationRail(
       selectedIndex: currentIndex,
       onDestinationSelected: onDestinationSelected,
       labelType: NavigationRailLabelType.all,
-      backgroundColor: theme.colorScheme.surface,
+      backgroundColor: ThemeUtils.getBackgroundColor(context),
+      indicatorColor: Colors.transparent,
+      selectedIconTheme: IconThemeData(
+        color: ThemeUtils.getTextPrimary(context),
+        size: 22,
+      ),
+      unselectedIconTheme: IconThemeData(
+        color: ThemeUtils.getTextSecondary(context),
+        size: 22,
+      ),
+      selectedLabelTextStyle: GoogleFonts.inter(
+        fontSize: 10,
+        fontWeight: FontWeight.w600,
+        letterSpacing: 1.6,
+        color: ThemeUtils.getTextPrimary(context),
+      ),
+      unselectedLabelTextStyle: GoogleFonts.inter(
+        fontSize: 10,
+        fontWeight: FontWeight.w600,
+        letterSpacing: 1.6,
+        color: ThemeUtils.getTextSecondary(context),
+      ),
       destinations: const [
         NavigationRailDestination(
-          icon: Icon(Icons.dashboard_outlined),
-          selectedIcon: Icon(Icons.dashboard),
-          label: Text('Dashboard'),
+          icon: Icon(Icons.home_outlined),
+          selectedIcon: Icon(Icons.home),
+          label: Text('BERANDA'),
         ),
         NavigationRailDestination(
-          icon: Icon(Icons.receipt_long_outlined),
-          selectedIcon: Icon(Icons.receipt_long),
-          label: Text('Transaksi'),
+          icon: Icon(Icons.show_chart),
+          selectedIcon: Icon(Icons.bar_chart_rounded),
+          label: Text('ANALISA'),
         ),
         NavigationRailDestination(
           icon: Icon(Icons.add_circle_outline),
           selectedIcon: Icon(Icons.add_circle),
-          label: Text('Tambah'),
+          label: Text('TULIS'),
         ),
         NavigationRailDestination(
-          icon: Icon(Icons.savings_outlined),
-          selectedIcon: Icon(Icons.savings),
-          label: Text('Target'),
+          icon: Icon(Icons.pie_chart_outline),
+          selectedIcon: Icon(Icons.pie_chart),
+          label: Text('BUDGET'),
         ),
         NavigationRailDestination(
           icon: Icon(Icons.person_outline),
           selectedIcon: Icon(Icons.person),
-          label: Text('Profil'),
+          label: Text('PROFIL'),
         ),
       ],
     );

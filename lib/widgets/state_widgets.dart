@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
-import '../theme/app_theme.dart';
+import 'package:google_fonts/google_fonts.dart';
 
-/// Empty state widget with actionable CTA
-/// Improves user activation and reduces drop-off (C4 fix)
+import '../theme/app_theme.dart';
+import '../utils/theme_utils.dart';
+import 'editorial.dart';
+
+/// Editorial empty state — eyebrow + display title + body, with hairline rule
+/// and outlined CTA. No giant gradient circle icons.
 class EmptyStateWidget extends StatelessWidget {
   final String title;
   final String description;
@@ -10,6 +14,7 @@ class EmptyStateWidget extends StatelessWidget {
   final String? actionLabel;
   final VoidCallback? onAction;
   final Color? iconColor;
+  final String eyebrow;
 
   const EmptyStateWidget({
     required this.title,
@@ -18,12 +23,14 @@ class EmptyStateWidget extends StatelessWidget {
     this.actionLabel,
     this.onAction,
     this.iconColor,
+    this.eyebrow = 'KOSONG',
     super.key,
   });
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final secondary = ThemeUtils.getTextSecondary(context);
+    final ink = ThemeUtils.getTextPrimary(context);
 
     return Semantics(
       label: '$title. $description',
@@ -31,63 +38,59 @@ class EmptyStateWidget extends StatelessWidget {
         child: SingleChildScrollView(
           physics: const BouncingScrollPhysics(),
           child: Padding(
-            padding: const EdgeInsets.all(AppTheme.space32),
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppTheme.pageGutter,
+              vertical: AppTheme.space48,
+            ),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Illustration icon
-                Container(
-                  padding: const EdgeInsets.all(AppTheme.space24),
-                  decoration: BoxDecoration(
-                    color: (iconColor ?? theme.colorScheme.primary).withOpacity(
-                      0.08,
-                    ),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    icon,
-                    size: 80,
-                    color: (iconColor ?? theme.colorScheme.primary).withOpacity(
-                      0.6,
-                    ),
-                  ),
+                Row(
+                  children: [
+                    const AccentBar(width: 24, height: 2),
+                    const SizedBox(width: AppTheme.space8),
+                    Eyebrow(eyebrow, color: secondary),
+                  ],
                 ),
-                const SizedBox(height: AppTheme.space24),
-
-                // Title
+                const SizedBox(height: AppTheme.space20),
+                Icon(
+                  icon,
+                  size: 32,
+                  color: iconColor ?? ink,
+                ),
+                const SizedBox(height: AppTheme.space20),
                 Text(
                   title,
-                  style: theme.textTheme.titleLarge?.copyWith(
+                  style: GoogleFonts.spaceGrotesk(
+                    fontSize: 32,
                     fontWeight: FontWeight.w600,
+                    height: 1.1,
+                    letterSpacing: -0.6,
+                    color: ink,
                   ),
-                  textAlign: TextAlign.center,
                 ),
-                const SizedBox(height: AppTheme.space12),
-
-                // Description
+                const SizedBox(height: AppTheme.space16),
                 Text(
                   description,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: AppTheme.textSecondary,
+                  style: GoogleFonts.inter(
+                    fontSize: 14,
+                    height: 1.6,
+                    color: secondary,
                   ),
-                  textAlign: TextAlign.center,
-                  maxLines: 3,
+                  maxLines: 4,
                   overflow: TextOverflow.ellipsis,
                 ),
-
-                // Action button (if provided)
                 if (actionLabel != null && onAction != null) ...[
                   const SizedBox(height: AppTheme.space32),
-                  FilledButton.icon(
-                    onPressed: onAction,
-                    icon: const Icon(Icons.add_circle_outline),
-                    label: Text(actionLabel!),
-                    style: FilledButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: AppTheme.space24,
-                        vertical: AppTheme.space16,
-                      ),
+                  const Hairline(),
+                  const SizedBox(height: AppTheme.space24),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: OutlinedButton(
+                      onPressed: onAction,
+                      child: Text(actionLabel!.toUpperCase()),
                     ),
                   ),
                 ],
@@ -100,7 +103,7 @@ class EmptyStateWidget extends StatelessWidget {
   }
 }
 
-/// Loading state with progress indicator
+/// Editorial loading state — eyebrow + slim linear progress, ink only.
 class LoadingStateWidget extends StatelessWidget {
   final String? message;
 
@@ -108,35 +111,52 @@ class LoadingStateWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final secondary = ThemeUtils.getTextSecondary(context);
 
     return Semantics(
       label: message ?? 'Memuat data',
       liveRegion: true,
       child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const CircularProgressIndicator(),
-            if (message != null) ...[
-              const SizedBox(height: AppTheme.space16),
-              Text(
-                message!,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: AppTheme.textSecondary,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppTheme.pageGutter,
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              const Eyebrow('SEDANG MENULIS'),
+              const SizedBox(height: AppTheme.space12),
+              SizedBox(
+                width: 120,
+                child: LinearProgressIndicator(
+                  minHeight: 2,
+                  backgroundColor: ThemeUtils.isDarkMode(context)
+                      ? AppTheme.darkHairlineColor
+                      : AppTheme.hairlineColor,
                 ),
-                textAlign: TextAlign.center,
               ),
+              if (message != null) ...[
+                const SizedBox(height: AppTheme.space16),
+                Text(
+                  message!,
+                  style: GoogleFonts.inter(
+                    fontSize: 13,
+                    color: secondary,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );
   }
 }
 
-/// Error state with retry action
+/// Editorial error state.
 class ErrorStateWidget extends StatelessWidget {
   final String title;
   final String message;
@@ -151,68 +171,68 @@ class ErrorStateWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final secondary = ThemeUtils.getTextSecondary(context);
+    final expense = ThemeUtils.getExpenseColor(context);
+    final ink = ThemeUtils.getTextPrimary(context);
 
     return Semantics(
       label: '$title. $message',
       child: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(AppTheme.space32),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Error icon
-              Container(
-                padding: const EdgeInsets.all(AppTheme.space24),
-                decoration: BoxDecoration(
-                  color: AppTheme.expenseColor.withOpacity(0.08),
-                  shape: BoxShape.circle,
+        child: SingleChildScrollView(
+          physics: const BouncingScrollPhysics(),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppTheme.pageGutter,
+              vertical: AppTheme.space48,
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(width: 24, height: 2, color: expense),
+                    const SizedBox(width: AppTheme.space8),
+                    Eyebrow('GALAT', color: expense),
+                  ],
                 ),
-                child: Icon(
-                  Icons.error_outline,
-                  size: 64,
-                  color: AppTheme.expenseColor.withOpacity(0.8),
-                ),
-              ),
-              const SizedBox(height: AppTheme.space24),
-
-              // Title
-              Text(
-                title,
-                style: theme.textTheme.titleLarge?.copyWith(
-                  color: AppTheme.expenseColor,
-                  fontWeight: FontWeight.w600,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: AppTheme.space12),
-
-              // Error message
-              Text(
-                message,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: AppTheme.textSecondary,
-                ),
-                textAlign: TextAlign.center,
-                maxLines: 4,
-                overflow: TextOverflow.ellipsis,
-              ),
-
-              // Retry button (if provided)
-              if (onRetry != null) ...[
-                const SizedBox(height: AppTheme.space24),
-                OutlinedButton.icon(
-                  onPressed: onRetry,
-                  icon: const Icon(Icons.refresh),
-                  label: const Text('Coba Lagi'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: AppTheme.expenseColor,
-                    side: const BorderSide(color: AppTheme.expenseColor),
+                const SizedBox(height: AppTheme.space20),
+                Text(
+                  title,
+                  style: GoogleFonts.spaceGrotesk(
+                    fontSize: 28,
+                    fontWeight: FontWeight.w600,
+                    height: 1.1,
+                    letterSpacing: -0.5,
+                    color: ink,
                   ),
                 ),
+                const SizedBox(height: AppTheme.space12),
+                Text(
+                  message,
+                  style: GoogleFonts.inter(
+                    fontSize: 14,
+                    height: 1.6,
+                    color: secondary,
+                  ),
+                  maxLines: 5,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                if (onRetry != null) ...[
+                  const SizedBox(height: AppTheme.space32),
+                  const Hairline(),
+                  const SizedBox(height: AppTheme.space24),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: OutlinedButton(
+                      onPressed: onRetry,
+                      child: const Text('COBA LAGI'),
+                    ),
+                  ),
+                ],
               ],
-            ],
+            ),
           ),
         ),
       ),
@@ -220,65 +240,76 @@ class ErrorStateWidget extends StatelessWidget {
   }
 }
 
-/// Success snackbar helper
+/// Success snackbar — flat ink slab with indigo accent rule.
 void showSuccessSnackbar(BuildContext context, String message) {
-  final mediaQuery = MediaQuery.of(context);
-  final screenHeight = mediaQuery.size.height;
-  final appBarHeight =
-      kToolbarHeight + mediaQuery.padding.top; // ~56 + status bar
-
+  final isDark = ThemeUtils.isDarkMode(context);
   ScaffoldMessenger.of(context).showSnackBar(
     SnackBar(
       content: Row(
         children: [
-          const Icon(Icons.check_circle, color: Colors.white),
+          Container(
+            width: 3,
+            height: 24,
+            color: isDark ? AppTheme.darkPrimaryColor : AppTheme.primaryColor,
+          ),
           const SizedBox(width: AppTheme.space12),
           Expanded(
-            child: Text(message, style: const TextStyle(color: Colors.white)),
+            child: Text(
+              message,
+              style: GoogleFonts.inter(
+                fontSize: 13,
+                color: isDark ? AppTheme.darkBackgroundColor : AppTheme.backgroundColor,
+              ),
+            ),
           ),
         ],
       ),
-      backgroundColor: AppTheme.incomeColor,
+      backgroundColor: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
       behavior: SnackBarBehavior.floating,
-      margin: EdgeInsets.fromLTRB(
-        AppTheme.space16, // left
-        appBarHeight + 80, // top - JAUH LEBIH BAWAH LAGI BOS!
-        AppTheme.space16, // right
-        screenHeight - appBarHeight - 152, // bottom - disesuaikan
-      ),
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+        borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
       ),
+      margin: const EdgeInsets.all(AppTheme.space16),
       duration: const Duration(seconds: 3),
     ),
   );
 }
 
-/// Error snackbar helper
+/// Error snackbar — flat ink slab with crimson accent rule.
 void showErrorSnackbar(BuildContext context, String message) {
+  final isDark = ThemeUtils.isDarkMode(context);
   ScaffoldMessenger.of(context).showSnackBar(
     SnackBar(
       content: Row(
         children: [
-          const Icon(Icons.error, color: Colors.white),
+          Container(
+            width: 3,
+            height: 24,
+            color: isDark ? AppTheme.darkExpenseColor : AppTheme.expenseColor,
+          ),
           const SizedBox(width: AppTheme.space12),
           Expanded(
-            child: Text(message, style: const TextStyle(color: Colors.white)),
+            child: Text(
+              message,
+              style: GoogleFonts.inter(
+                fontSize: 13,
+                color: isDark ? AppTheme.darkBackgroundColor : AppTheme.backgroundColor,
+              ),
+            ),
           ),
         ],
       ),
-      backgroundColor: AppTheme.expenseColor,
+      backgroundColor: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
       behavior: SnackBarBehavior.floating,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+        borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
       ),
+      margin: const EdgeInsets.all(AppTheme.space16),
       duration: const Duration(seconds: 4),
       action: SnackBarAction(
-        label: 'Tutup',
-        textColor: Colors.white,
-        onPressed: () {
-          ScaffoldMessenger.of(context).hideCurrentSnackBar();
-        },
+        label: 'TUTUP',
+        textColor: isDark ? AppTheme.darkPrimaryColor : AppTheme.darkPrimaryColor,
+        onPressed: () => ScaffoldMessenger.of(context).hideCurrentSnackBar(),
       ),
     ),
   );

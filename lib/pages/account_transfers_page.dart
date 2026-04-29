@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../data/app_database.dart';
-import '../state/auth_notifier.dart';
+import '../theme/app_theme.dart';
+import '../utils/theme_utils.dart';
+import '../widgets/editorial.dart';
+import '../widgets/state_widgets.dart';
 
 class AccountTransfersPage extends StatefulWidget {
   const AccountTransfersPage({super.key});
@@ -30,21 +34,13 @@ class _AccountTransfersPageState extends State<AccountTransfersPage> {
 
   Future<void> _load() async {
     setState(() => _loading = true);
-    final userId = context.read<AuthNotifier>().user!['id'] as int;
-    final rows = await context.read<AppDatabase>().db.rawQuery(
-      '''
-      SELECT id, date, from_account, to_account, amount, note
-      FROM account_transfers
-      WHERE user_id=? AND substr(date,1,7)=?
-      ORDER BY id DESC
-      LIMIT 100
-    ''',
-      [userId, _month],
-    );
-    final balances = await context.read<AppDatabase>().accountBalancesByMonth(
-      userId,
-      _month,
-    );
+    final db = context.read<AppDatabase>();
+    final allTransfers = await db.getAccountTransfers();
+    final rows = allTransfers.where((r) {
+      final d = r['date'] as String;
+      return d.startsWith(_month);
+    }).toList();
+    final balances = await db.accountBalancesByMonth(_month);
     setState(() {
       _rows = rows;
       _balances = balances;
@@ -54,221 +50,164 @@ class _AccountTransfersPageState extends State<AccountTransfersPage> {
 
   @override
   Widget build(BuildContext context) {
+    final paper = ThemeUtils.getBackgroundColor(context);
+    final secondary = ThemeUtils.getTextSecondary(context);
+    final ink = ThemeUtils.getTextPrimary(context);
+
     return Scaffold(
-      appBar: AppBar(title: const Text('Saldo Akun')),
-      body: Column(
-        children: [
-          // Hapus selector Bulan: <YYYY-MM> sesuai permintaan (tetap pakai bulan aktif di belakang layar)
-          if (_balances.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 12.0,
-                vertical: 12,
-              ),
-              child: Card(
-                child: Column(
-                  children: [
-                    for (int i = 0; i < _balances.length; i++) ...[
-                      Padding(
-                        padding: const EdgeInsets.all(12),
-                        child: Row(
-                          children: [
-                            Icon(
-                              _iconFor(_balances[i]['acc'] as String),
-                              color: const Color(0xFF157347),
+      backgroundColor: paper,
+      body: SafeArea(
+        child: _loading
+            ? const LoadingStateWidget(message: 'Memuat saldo...')
+            : Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  EditorialHeader(
+                    eyebrow: 'AKUN',
+                    title: 'Saldo.',
+                    metaEyebrow: 'BULAN',
+                    meta: _monthLabel(),
+                    titleSize: 36,
+                  ),
+                  Expanded(
+                    child: ListView(
+                      padding: EdgeInsets.zero,
+                      children: [
+                        // Account balances
+                        if (_balances.isNotEmpty) ...[
+                          for (final balance in _balances)
+                            _AccountBalanceRow(
+                              label: balance['label'] as String,
+                              account: balance['acc'] as String,
+                              saldo: (balance['saldo'] as num).toDouble(),
+                              money: _money,
+                              icon: _iconFor(balance['acc'] as String),
                             ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
+                        ] else ...[
+                          const Hairline(),
+                          Padding(
+                            padding: const EdgeInsets.all(AppTheme.space24),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Eyebrow('KOSONG', color: secondary),
+                                const SizedBox(height: AppTheme.space8),
+                                Text(
+                                  'Belum ada saldo akun.',
+                                  style: GoogleFonts.spaceGrotesk(
+                                    fontSize: 22,
+                                    fontWeight: FontWeight.w600,
+                                    letterSpacing: -0.4,
+                                    color: ink,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                        const Hairline(),
+
+                        // History toggle
+                        Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            onTap: () => setState(() => _showHistory = !_showHistory),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: AppTheme.pageGutter,
+                                vertical: AppTheme.space20,
+                              ),
+                              child: Row(
                                 children: [
-                                  Text(
-                                    _balances[i]['label'] as String,
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.w600,
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Eyebrow('RIWAYAT', color: secondary),
+                                        const SizedBox(height: AppTheme.space4),
+                                        Text(
+                                          _rows.isEmpty
+                                              ? 'Belum ada mutasi'
+                                              : '${_rows.length} mutasi bulan ini',
+                                          style: GoogleFonts.spaceGrotesk(
+                                            fontSize: 18,
+                                            fontWeight: FontWeight.w600,
+                                            letterSpacing: -0.3,
+                                            color: ink,
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    _money(
-                                      (_balances[i]['saldo'] as num).toDouble(),
-                                    ),
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w700,
-                                      color:
-                                          ((_balances[i]['saldo'] as num) >= 0)
-                                          ? const Color(0xFF157347)
-                                          : Colors.red,
-                                    ),
+                                  Icon(
+                                    _showHistory
+                                        ? Icons.keyboard_arrow_up
+                                        : Icons.keyboard_arrow_down,
+                                    color: secondary,
                                   ),
                                 ],
                               ),
                             ),
-                          ],
-                        ),
-                      ),
-                      if (i != _balances.length - 1) const Divider(height: 1),
-                    ],
-                  ],
-                ),
-              ),
-            ),
-          // Card aksi: Tambah Mutasi Akun (pindah dari AppBar)
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8),
-            child: Card(
-              child: InkWell(
-                borderRadius: BorderRadius.circular(14),
-                onTap: _showAddDialog,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 14,
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 42,
-                        height: 42,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          gradient: LinearGradient(
-                            colors: [
-                              Theme.of(
-                                context,
-                              ).colorScheme.primary.withOpacity(.15),
-                              const Color(0xFFE8F5E9),
-                            ],
                           ),
                         ),
-                        child: const Center(
-                          child: Icon(
-                            Icons.swap_horiz,
-                            color: Color(0xFF157347),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      const Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Tambah Mutasi Akun',
-                              style: TextStyle(
-                                fontWeight: FontWeight.w700,
-                                fontSize: 16,
-                              ),
+                        if (_showHistory) ...[
+                          for (int i = 0; i < _rows.length; i++)
+                            _TransferHistoryRow(
+                              row: _rows[i],
+                              money: _money,
+                              onDelete: () async {
+                                await context.read<AppDatabase>().deleteAccountTransfer(
+                                  _rows[i]['id'] as int,
+                                );
+                                _rows.removeAt(i);
+                                if (mounted) setState(() {});
+                              },
                             ),
-                            SizedBox(height: 2),
-                            Text(
-                              'Pindah saldo antar akun',
-                              style: TextStyle(color: Colors.black54),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Container(
-                        width: 32,
-                        height: 32,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          border: Border.all(color: const Color(0xFF157347)),
-                        ),
-                        child: const Icon(
-                          Icons.add,
-                          size: 18,
-                          color: Color(0xFF157347),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-          // Header card Riwayat Mutasi
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8),
-            child: Card(
-              child: ListTile(
-                leading: const Icon(Icons.history),
-                title: Text(
-                  'Riwayat Mutasi (${_monthLabel()})',
-                  style: const TextStyle(fontWeight: FontWeight.w700),
-                ),
-                subtitle: Text(
-                  _rows.isEmpty
-                      ? 'Belum ada data'
-                      : '${_rows.length} transaksi',
-                ),
-                trailing: Icon(
-                  _showHistory ? Icons.expand_less : Icons.expand_more,
-                ),
-                onTap: () => setState(() => _showHistory = !_showHistory),
-              ),
-            ),
-          ),
-          // Riwayat mutasi ditampilkan di ListView (Expanded) agar bisa scroll
-          Expanded(
-            child: _loading
-                ? const Center(child: CircularProgressIndicator())
-                : ListView.separated(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12.0,
-                      vertical: 8.0,
+                        ],
+                        const SizedBox(height: AppTheme.space24),
+                      ],
                     ),
-                    itemCount: _showHistory ? _rows.length : 0,
-                    separatorBuilder: (_, __) => const SizedBox(height: 8),
-                    itemBuilder: (context, i) {
-                      final r = _rows[i];
-                      return Dismissible(
-                        key: ValueKey(r['id']),
-                        background: Container(color: Colors.red),
-                        onDismissed: (_) async {
-                          await context.read<AppDatabase>().db.delete(
-                            'account_transfers',
-                            where: 'id=?',
-                            whereArgs: [r['id']],
-                          );
-                          _rows.removeAt(i);
-                          setState(() {});
-                        },
-                        child: Card(
-                          child: ListTile(
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 10,
-                            ),
-                            leading: Icon(
-                              _iconFor(r['from_account'] as String),
-                              color: const Color(0xFF157347),
-                            ),
-                            title: Text(
-                              '${r['from_account']} -> ${r['to_account']}',
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            subtitle: Text(
-                              '${r['date']}',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            trailing: Text(
-                              _money(r['amount'] as num),
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ),
-                        ),
-                      );
-                    },
                   ),
-          ),
-        ],
+
+                  // Bottom add bar
+                  const Hairline(),
+                  Material(
+                    color: paper,
+                    child: InkWell(
+                      onTap: _showAddDialog,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppTheme.pageGutter,
+                          vertical: AppTheme.space20,
+                        ),
+                        child: Row(
+                          children: [
+                            AccentBar(
+                              width: 24,
+                              height: 2,
+                              color: ThemeUtils.getPrimaryColor(context),
+                            ),
+                            const SizedBox(width: AppTheme.space8),
+                            Eyebrow('TAMBAH', color: secondary),
+                            const Spacer(),
+                            Text(
+                              'Mutasi antar akun',
+                              style: GoogleFonts.spaceGrotesk(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: ink,
+                                letterSpacing: -0.2,
+                              ),
+                            ),
+                            const SizedBox(width: AppTheme.space12),
+                            Icon(Icons.swap_horiz, size: 22, color: ink),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
       ),
     );
   }
@@ -292,7 +231,6 @@ class _AccountTransfersPageState extends State<AccountTransfersPage> {
       ),
       builder: (context) {
         final bottom = MediaQuery.of(context).viewInsets.bottom;
-        final baseTheme = Theme.of(context);
         return Padding(
           padding: EdgeInsets.fromLTRB(16, 12, 16, bottom + 16),
           child: SingleChildScrollView(
@@ -416,8 +354,6 @@ class _AccountTransfersPageState extends State<AccountTransfersPage> {
                     Expanded(
                       child: FilledButton(
                         onPressed: () async {
-                          final userId =
-                              context.read<AuthNotifier>().user!['id'] as int;
                           final amount = _parseAmount(amountCtrl.text);
                           final fee = _parseAmount(feeCtrl.text) ?? 0.0;
                           if (amount == null || amount <= 0) {
@@ -439,7 +375,6 @@ class _AccountTransfersPageState extends State<AccountTransfersPage> {
                           await context
                               .read<AppDatabase>()
                               .insertAccountTransferWithFee(
-                                userId: userId,
                                 dateIso: DateFormat('yyyy-MM-dd').format(date),
                                 fromAccount: from,
                                 toAccount: to,
@@ -500,39 +435,67 @@ class _AccountTransfersPageState extends State<AccountTransfersPage> {
   }
 }
 
-class _AccountRow extends StatelessWidget {
-  final Map<String, dynamic> balance;
+class _AccountBalanceRow extends StatelessWidget {
+  final String label;
+  final String account;
+  final double saldo;
   final String Function(num) money;
-  final IconData Function(String) iconFor;
-  const _AccountRow({
-    required this.balance,
+  final IconData icon;
+
+  const _AccountBalanceRow({
+    required this.label,
+    required this.account,
+    required this.saldo,
     required this.money,
-    required this.iconFor,
+    required this.icon,
   });
 
   @override
   Widget build(BuildContext context) {
-    final saldo = (balance['saldo'] as num).toDouble();
-    final color = saldo >= 0 ? const Color(0xFF157347) : Colors.red;
-    return Row(
+    final ink = ThemeUtils.getTextPrimary(context);
+    final secondary = ThemeUtils.getTextSecondary(context);
+    final expense = ThemeUtils.getExpenseColor(context);
+    final isNegative = saldo < 0;
+    final amountColor = isNegative ? expense : ink;
+
+    return Column(
       children: [
-        Icon(iconFor(balance['acc'] as String), color: const Color(0xFF157347)),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+        const Hairline(),
+        Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppTheme.pageGutter,
+            vertical: AppTheme.space20,
+          ),
+          child: Row(
             children: [
-              Text(
-                balance['label'] as String,
-                style: const TextStyle(fontWeight: FontWeight.w600),
+              Icon(icon, size: 22, color: ink),
+              const SizedBox(width: AppTheme.space16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Eyebrow(account.toUpperCase(), color: secondary),
+                    const SizedBox(height: AppTheme.space4),
+                    Text(
+                      label,
+                      style: GoogleFonts.spaceGrotesk(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: -0.2,
+                        color: ink,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-              const SizedBox(height: 2),
+              const SizedBox(width: AppTheme.space12),
               Text(
                 money(saldo),
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                  color: color,
+                style: GoogleFonts.spaceGrotesk(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: -0.3,
+                  color: amountColor,
                 ),
               ),
             ],
@@ -543,69 +506,90 @@ class _AccountRow extends StatelessWidget {
   }
 }
 
-class _HistoryItem extends StatelessWidget {
+class _TransferHistoryRow extends StatelessWidget {
   final Map<String, dynamic> row;
   final String Function(num) money;
-  final IconData Function(String) iconFor;
   final Future<void> Function() onDelete;
-  const _HistoryItem({
+
+  const _TransferHistoryRow({
     required this.row,
     required this.money,
-    required this.iconFor,
     required this.onDelete,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _kv('Tanggal', row['date'] as String? ?? '-'),
-        const Divider(height: 12),
-        _kv('Dari', row['from_account'] as String? ?? '-'),
-        const Divider(height: 12),
-        _kv('Ke', row['to_account'] as String? ?? '-'),
-        const Divider(height: 12),
-        _kv('Jumlah', money(row['amount'] as num)),
-        const Divider(height: 12),
-        _kv(
-          'Catatan',
-          (row['note'] as String?)?.trim().isEmpty == true
-              ? '-'
-              : (row['note'] as String? ?? '-'),
-        ),
-        const SizedBox(height: 8),
-        Align(
-          alignment: Alignment.centerRight,
-          child: OutlinedButton(
-            style: OutlinedButton.styleFrom(
-              foregroundColor: Colors.red,
-              side: const BorderSide(color: Colors.red),
-            ),
-            onPressed: onDelete,
-            child: const Text('Hapus'),
-          ),
-        ),
-      ],
-    );
-  }
+    final ink = ThemeUtils.getTextPrimary(context);
+    final secondary = ThemeUtils.getTextSecondary(context);
 
-  Widget _kv(String k, String v) {
-    return Row(
-      children: [
-        SizedBox(
-          width: 90,
-          child: Text(
-            k,
-            style: const TextStyle(
-              color: Colors.black54,
-              fontWeight: FontWeight.w600,
+    return Dismissible(
+      key: ValueKey(row['id']),
+      direction: DismissDirection.endToStart,
+      background: Container(
+        color: ThemeUtils.getExpenseColor(context),
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: AppTheme.pageGutter),
+        child: const Icon(Icons.delete_outline, color: Colors.white),
+      ),
+      onDismissed: (_) => onDelete(),
+      child: Column(
+        children: [
+          const Hairline(),
+          Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppTheme.pageGutter,
+              vertical: AppTheme.space20,
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Eyebrow(
+                        '${row['from_account']} → ${row['to_account']}',
+                        color: secondary,
+                      ),
+                      const SizedBox(height: AppTheme.space4),
+                      Text(
+                        row['date'] as String? ?? '-',
+                        style: GoogleFonts.spaceGrotesk(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: -0.2,
+                          color: ink,
+                        ),
+                      ),
+                      if (((row['note'] as String?) ?? '').trim().isNotEmpty) ...[
+                        const SizedBox(height: AppTheme.space4),
+                        Text(
+                          row['note'] as String,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.inter(
+                            fontSize: 12,
+                            color: secondary,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                const SizedBox(width: AppTheme.space12),
+                Text(
+                  money(row['amount'] as num),
+                  style: GoogleFonts.spaceGrotesk(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: -0.2,
+                    color: ink,
+                  ),
+                ),
+              ],
             ),
           ),
-        ),
-        const SizedBox(width: 8),
-        Expanded(child: Text(v)),
-      ],
+        ],
+      ),
     );
   }
 }
