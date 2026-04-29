@@ -10,11 +10,21 @@ class MainNavigationScaffold extends StatelessWidget {
   final FloatingActionButton? floatingActionButton;
   final Function(int) onNavigationChanged;
 
+  /// Optional handler invoked when the centre TULIS item is tapped. If null,
+  /// tapping TULIS falls back to `onNavigationChanged(2)`.
+  final VoidCallback? onAddPressed;
+
+  /// Optional GlobalKey forwarded to the TULIS item so callers can anchor
+  /// overlays (e.g. radial menu) on its render box.
+  final GlobalKey? addAnchorKey;
+
   const MainNavigationScaffold({
     required this.currentIndex,
     required this.child,
     required this.onNavigationChanged,
     this.floatingActionButton,
+    this.onAddPressed,
+    this.addAnchorKey,
     super.key,
   });
 
@@ -32,6 +42,8 @@ class MainNavigationScaffold extends StatelessWidget {
             bottomNavigationBar: AppBottomNavigation(
               currentIndex: currentIndex,
               onDestinationSelected: onNavigationChanged,
+              onAddPressed: onAddPressed,
+              addAnchorKey: addAnchorKey,
             ),
             floatingActionButton: floatingActionButton,
           );

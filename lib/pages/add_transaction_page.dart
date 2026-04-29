@@ -8,7 +8,6 @@ import '../theme/app_theme.dart';
 import '../utils/theme_utils.dart';
 import '../widgets/editorial.dart';
 import '../widgets/state_widgets.dart';
-import 'voice_add_transaction_page.dart';
 
 /// Editorial transaction composer — magazine "TULIS" page.
 class AddTransactionPage extends StatefulWidget {
@@ -215,10 +214,6 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
                   : MediaQuery.of(context).viewInsets.bottom + AppTheme.space24,
             ),
             children: [
-              // Voice input CTA
-              _buildVoiceCta(ink, secondary),
-              const SizedBox(height: AppTheme.space24),
-
               // Type segmented (underline style)
               _buildTypeSegment(ink, secondary, amountColor),
               const SizedBox(height: AppTheme.space32),
@@ -437,101 +432,6 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
     return Scaffold(
       backgroundColor: paper,
       body: SafeArea(child: content),
-    );
-  }
-
-  Future<void> _openVoiceFlow() async {
-    final saved = await Navigator.of(context).push<bool>(
-      MaterialPageRoute(
-        builder: (_) => const VoiceAddTransactionPage(),
-        fullscreenDialog: true,
-      ),
-    );
-    if (saved == true && mounted) {
-      // If we are inside a modal, close so the parent page can refresh.
-      if (widget.isModal) {
-        Navigator.of(context).pop();
-      } else {
-        await _loadCats();
-      }
-    }
-  }
-
-  Widget _buildVoiceCta(Color ink, Color secondary) {
-    final accent = ThemeUtils.getPrimaryColor(context);
-    final paper = ThemeUtils.getBackgroundColor(context);
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: _openVoiceFlow,
-        borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
-        child: Container(
-          padding: const EdgeInsets.all(AppTheme.space16),
-          decoration: BoxDecoration(
-            color: ThemeUtils.getCardColor(context),
-            border: Border.all(
-              color: ThemeUtils.isDarkMode(context)
-                  ? AppTheme.darkHairlineColor
-                  : AppTheme.hairlineColor,
-              width: AppTheme.hairlineWidth,
-            ),
-            borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: accent,
-                  borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
-                ),
-                child: Icon(Icons.mic_rounded, color: paper, size: 22),
-              ),
-              const SizedBox(width: AppTheme.space12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        AccentBar(width: 16, height: 2, color: accent),
-                        const SizedBox(width: AppTheme.space8),
-                        Eyebrow(
-                          'SPEECH TO TRANSACTION',
-                          color: accent,
-                          size: 10,
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: AppTheme.space4),
-                    Text(
-                      'Catat lewat suara',
-                      style: GoogleFonts.spaceGrotesk(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                        color: ink,
-                        letterSpacing: -0.2,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      'Bicara saja, TemanKu menyusun draftnya.',
-                      style: GoogleFonts.inter(
-                        fontSize: 12,
-                        color: secondary,
-                        height: 1.4,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: AppTheme.space8),
-              Icon(Icons.arrow_forward, size: 18, color: ink),
-            ],
-          ),
-        ),
-      ),
     );
   }
 

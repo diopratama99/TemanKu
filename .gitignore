@@ -1,6 +1,9 @@
 # Supabase credentials
 supabase.json
 
+#Cmd Line For Me
+command_line.md
+
 # Miscellaneous
 *.class
 *.log

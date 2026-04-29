@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../widgets/add_action_menu.dart';
 import '../widgets/main_navigation_scaffold.dart';
-import 'dashboard_page.dart';
-import 'statistics_page.dart';
 import 'add_transaction_page.dart';
 import 'budgets_page.dart';
+import 'dashboard_page.dart';
 import 'profile_page.dart';
+import 'receipt_ocr_page.dart';
+import 'statistics_page.dart';
+import 'voice_add_transaction_page.dart';
 
 /// Editorial home shell — no global AppBar; each page renders its own
 /// magazine-style header. Bottom navigation stays consistent.
@@ -24,6 +27,10 @@ class _HomePageState extends State<HomePage> {
   // Each element is a generation counter; incrementing forces the page to rebuild
   final List<int> _pageKeys = [0, 0, 0, 0, 0];
 
+  /// Anchor for the radial add-action menu — attached to the centre TULIS
+  /// item in the bottom nav.
+  final GlobalKey _addAnchorKey = GlobalKey();
+
   static final List<Widget Function(Key)> _builders = [
     (k) => DashboardPage(key: k),
     (k) => StatisticsPage(key: k),
@@ -33,8 +40,11 @@ class _HomePageState extends State<HomePage> {
   ];
 
   void _onNavigationChanged(int index) {
+    // Tablet rail still routes index 2 here; mobile bottom nav uses
+    // `onAddPressed` to open the radial menu directly without going through
+    // this callback.
     if (index == 2) {
-      _showAddTransaction();
+      _showAddActionMenu();
       return;
     }
     setState(() {
@@ -43,6 +53,18 @@ class _HomePageState extends State<HomePage> {
       }
       _currentIndex = index;
     });
+  }
+
+  /// Pops the radial menu over the bottom nav, letting the user pick between
+  /// manual TULIS, KAMERA (OCR), or REKAM SUARA (voice).
+  Future<void> _showAddActionMenu() async {
+    await showAddActionMenu(
+      context,
+      anchorKey: _addAnchorKey,
+      onTulis: _showAddTransaction,
+      onKamera: _showReceiptOcrFlow,
+      onSuara: _showVoiceFlow,
+    );
   }
 
   Future<void> _showAddTransaction() async {
@@ -61,6 +83,30 @@ class _HomePageState extends State<HomePage> {
     );
     // Refresh the current page after modal closes
     if (mounted) setState(() => _pageKeys[_currentIndex]++);
+  }
+
+  Future<void> _showVoiceFlow() async {
+    final saved = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => const VoiceAddTransactionPage(),
+        fullscreenDialog: true,
+      ),
+    );
+    if (saved == true && mounted) {
+      setState(() => _pageKeys[_currentIndex]++);
+    }
+  }
+
+  Future<void> _showReceiptOcrFlow() async {
+    final saved = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => const ReceiptOcrPage(),
+        fullscreenDialog: true,
+      ),
+    );
+    if (saved == true && mounted) {
+      setState(() => _pageKeys[_currentIndex]++);
+    }
   }
 
   Future<bool> _onWillPop() async {
@@ -94,6 +140,8 @@ class _HomePageState extends State<HomePage> {
       child: MainNavigationScaffold(
         currentIndex: _currentIndex,
         onNavigationChanged: _onNavigationChanged,
+        onAddPressed: _showAddActionMenu,
+        addAnchorKey: _addAnchorKey,
         floatingActionButton: null,
         child: SafeArea(
           top: true,

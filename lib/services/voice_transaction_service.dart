@@ -1,69 +1,8 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-/// Result returned by the `parse-transaction` Supabase Edge Function.
-///
-/// Field semantics mirror the JSON schema documented in the function source.
-class ParsedTransaction {
-  final String type; // "income" | "expense"
-  final int amount; // rupiah, integer
-  final int categoryId;
-  final String categoryName;
-  final String? categoryEmoji;
-  final String account; // "Tunai" | "Transfer" | "E-Wallet"
-  final String sourceOrPayee;
-  final String notes;
-  final String date; // YYYY-MM-DD
-  final String confidence; // "high" | "medium" | "low"
-  final String reasoning;
-  final String transcript; // shared across siblings parsed from same utterance
+import '../models/parsed_transaction.dart';
 
-  const ParsedTransaction({
-    required this.type,
-    required this.amount,
-    required this.categoryId,
-    required this.categoryName,
-    required this.categoryEmoji,
-    required this.account,
-    required this.sourceOrPayee,
-    required this.notes,
-    required this.date,
-    required this.confidence,
-    required this.reasoning,
-    required this.transcript,
-  });
-
-  factory ParsedTransaction.fromJson(
-    Map<String, dynamic> j, {
-    String transcript = '',
-  }) {
-    return ParsedTransaction(
-      type: j['type'] as String? ?? 'expense',
-      amount: (j['amount'] as num?)?.toInt() ?? 0,
-      categoryId: (j['category_id'] as num?)?.toInt() ?? 0,
-      categoryName: j['category_name'] as String? ?? '',
-      categoryEmoji: j['category_emoji'] as String?,
-      account: j['account'] as String? ?? 'Tunai',
-      sourceOrPayee: j['source_or_payee'] as String? ?? '',
-      notes: j['notes'] as String? ?? '',
-      date: j['date'] as String? ?? '',
-      confidence: j['confidence'] as String? ?? 'medium',
-      reasoning: j['reasoning'] as String? ?? '',
-      transcript: (j['transcript'] as String?) ?? transcript,
-    );
-  }
-
-  Map<String, dynamic> toInsertPayload() {
-    return {
-      'date': date,
-      'type': type,
-      'category_id': categoryId,
-      'amount': amount,
-      'source_or_payee': sourceOrPayee,
-      'account': account,
-      'notes': notes,
-    };
-  }
-}
+export '../models/parsed_transaction.dart' show ParsedTransaction;
 
 class VoiceParseException implements Exception {
   final String message;
