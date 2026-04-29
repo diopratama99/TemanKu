@@ -57,8 +57,6 @@ class _BudgetsPageState extends State<BudgetsPage> {
 
   @override
   Widget build(BuildContext context) {
-    final date = DateTime.parse('$_month-01');
-    final monthName = DateFormat('MMMM yyyy', 'id_ID').format(date);
     final paper = ThemeUtils.getBackgroundColor(context);
 
     return Scaffold(
@@ -72,21 +70,7 @@ class _BudgetsPageState extends State<BudgetsPage> {
                   EditorialHeader(
                     eyebrow: 'BUDGET',
                     title: 'Anggaran.',
-                    metaEyebrow: 'PERIODE',
-                    meta: monthName,
                     titleSize: 36,
-                    trailing: TextButton(
-                      onPressed: _selectMonth,
-                      child: Text(
-                        'UBAH',
-                        style: GoogleFonts.inter(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          letterSpacing: 1.6,
-                          color: ThemeUtils.getPrimaryColor(context),
-                        ),
-                      ),
-                    ),
                   ),
                   if (_rows.isNotEmpty) _buildEditorialSummary(),
                   Expanded(
@@ -130,14 +114,6 @@ class _BudgetsPageState extends State<BudgetsPage> {
                           ),
                           child: Row(
                             children: [
-                              AccentBar(
-                                width: 24,
-                                height: 2,
-                                color: ThemeUtils.getPrimaryColor(context),
-                              ),
-                              const SizedBox(width: AppTheme.space8),
-                              Eyebrow('TAMBAH',
-                                  color: ThemeUtils.getTextSecondary(context)),
                               const Spacer(),
                               Text(
                                 'Budget kategori',
@@ -254,9 +230,7 @@ class _BudgetsPageState extends State<BudgetsPage> {
             child: FractionallySizedBox(
               alignment: Alignment.centerLeft,
               widthFactor: (percentage / 100).clamp(0.0, 1.0),
-              child: Container(
-                color: overBudget ? amountColor : accent,
-              ),
+              child: Container(color: overBudget ? amountColor : accent),
             ),
           ),
           const SizedBox(height: AppTheme.space12),
@@ -286,21 +260,6 @@ class _BudgetsPageState extends State<BudgetsPage> {
         ],
       ),
     );
-  }
-
-  Future<void> _selectMonth() async {
-    final now = DateTime.parse('$_month-01');
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: now,
-      firstDate: DateTime(2000),
-      lastDate: DateTime(2100),
-      helpText: 'Pilih bulan',
-    );
-    if (picked != null) {
-      setState(() => _month = DateFormat('yyyy-MM').format(picked));
-      await _load();
-    }
   }
 
   Future<void> _deleteBudget(Map<String, dynamic> budget) async {
@@ -554,7 +513,9 @@ class _BudgetRow extends StatelessWidget {
     final accent = ThemeUtils.getPrimaryColor(context);
     final expense = ThemeUtils.getExpenseColor(context);
     final isDark = ThemeUtils.isDarkMode(context);
-    final hairline = isDark ? AppTheme.darkHairlineColor : AppTheme.hairlineColor;
+    final hairline = isDark
+        ? AppTheme.darkHairlineColor
+        : AppTheme.hairlineColor;
     final amountColor = isOver ? expense : ink;
     final progressColor = isOver ? expense : accent;
 
@@ -636,7 +597,11 @@ class _BudgetRow extends StatelessWidget {
                         customBorder: const CircleBorder(),
                         child: Padding(
                           padding: const EdgeInsets.all(6),
-                          child: Icon(Icons.delete_outline, size: 18, color: secondary),
+                          child: Icon(
+                            Icons.delete_outline,
+                            size: 18,
+                            color: secondary,
+                          ),
                         ),
                       ),
                     ],

@@ -6,7 +6,7 @@
 class AppLocalizations {
   static const Map<String, String> _id = {
     // General
-    'app_name': 'Temanku',
+    'app_name': 'TemanKu',
     'app_tagline': 'Kelola Keuangan Pribadi',
     'loading': 'Memuat...',
     'error': 'Terjadi kesalahan',

@@ -62,7 +62,11 @@ class _MonthlyComparisonPageState extends State<MonthlyComparisonPage> {
     String month,
   ) async {
     final parts = month.split('-');
-    final lastDay = DateTime(int.parse(parts[0]), int.parse(parts[1]) + 1, 0).day;
+    final lastDay = DateTime(
+      int.parse(parts[0]),
+      int.parse(parts[1]) + 1,
+      0,
+    ).day;
     final rows = await db.getTransactions(
       startDate: '$month-01',
       endDate: '$month-${lastDay.toString().padLeft(2, '0')}',
@@ -91,10 +95,11 @@ class _MonthlyComparisonPageState extends State<MonthlyComparisonPage> {
       }
     }
 
-    final categories = catAgg.values
-        .where((cat) => (cat['amount'] as double) > 0)
-        .toList()
-      ..sort((a, b) => (b['amount'] as double).compareTo(a['amount'] as double));
+    final categories =
+        catAgg.values.where((cat) => (cat['amount'] as double) > 0).toList()
+          ..sort(
+            (a, b) => (b['amount'] as double).compareTo(a['amount'] as double),
+          );
 
     int totalCount = 0;
     for (final cat in categories) {
@@ -299,52 +304,67 @@ class _MonthlyComparisonPageState extends State<MonthlyComparisonPage> {
         child: _loading
             ? const LoadingStateWidget(message: 'Menganalisis data...')
             : _comparisonResult == null || _comparisonResult!.isEmpty
-                ? Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      EditorialHeader(
-                        eyebrow: 'PERBANDINGAN',
-                        title: 'Bulan vs.\nBulan.',
-                        titleSize: 36,
-                        trailing: IconButton(
-                          icon: Icon(Icons.info_outline,
-                              color: secondary, size: 20),
-                          onPressed: _showInfoDialog,
-                        ),
+            ? Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  EditorialHeader(
+                    eyebrow: 'PERBANDINGAN',
+                    title: 'Bulan vs.\nBulan.',
+                    titleSize: 36,
+                    showBackButton: true,
+                    trailing: IconButton(
+                      icon: Icon(
+                        Icons.info_outline,
+                        color: secondary,
+                        size: 20,
                       ),
-                      Expanded(
-                        child: EmptyStateWidget(
-                          icon: Icons.analytics_outlined,
-                          title: 'Tidak ada data',
-                          description:
-                              'Belum ada data pengeluaran untuk dibandingkan.',
-                        ),
-                      ),
-                    ],
-                  )
-                : RefreshIndicator(
-                    onRefresh: _loadData,
-                    child: ListView(
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      padding: EdgeInsets.zero,
-                      children: [
-                        EditorialHeader(
-                          eyebrow: 'PERBANDINGAN',
-                          title: 'Bulan vs.\nBulan.',
-                          titleSize: 36,
-                          trailing: IconButton(
-                            icon: Icon(Icons.info_outline,
-                                color: secondary, size: 20),
-                            onPressed: _showInfoDialog,
-                          ),
-                        ),
-                        _buildEditorialOverview(),
-                        _buildEditorialInterpretation(),
-                        _buildEditorialCategoryList(),
-                        const SizedBox(height: AppTheme.space40),
-                      ],
+                      onPressed: _showInfoDialog,
                     ),
                   ),
+                  Expanded(
+                    child: EmptyStateWidget(
+                      icon: Icons.analytics_outlined,
+                      title: 'Tidak ada data',
+                      description:
+                          'Belum ada data pengeluaran untuk dibandingkan.',
+                    ),
+                  ),
+                ],
+              )
+            : Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  EditorialHeader(
+                    eyebrow: 'PERBANDINGAN',
+                    title: 'Bulan vs.\nBulan.',
+                    titleSize: 36,
+                    showBackButton: true,
+                    trailing: IconButton(
+                      icon: Icon(
+                        Icons.info_outline,
+                        color: secondary,
+                        size: 20,
+                      ),
+                      onPressed: _showInfoDialog,
+                    ),
+                  ),
+                  Expanded(
+                    child: RefreshIndicator(
+                      onRefresh: _loadData,
+                      child: ListView(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        padding: EdgeInsets.zero,
+                        children: [
+                          _buildEditorialOverview(),
+                          _buildEditorialInterpretation(),
+                          _buildEditorialCategoryList(),
+                          const SizedBox(height: AppTheme.space40),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
       ),
     );
   }
@@ -389,8 +409,10 @@ class _MonthlyComparisonPageState extends State<MonthlyComparisonPage> {
                       Eyebrow('BULAN INI', color: secondary),
                       const SizedBox(height: AppTheme.space4),
                       Text(
-                        DateFormat('MMM yyyy', 'id_ID')
-                            .format(DateTime.parse('$_currentMonth-01')),
+                        DateFormat(
+                          'MMM yyyy',
+                          'id_ID',
+                        ).format(DateTime.parse('$_currentMonth-01')),
                         style: GoogleFonts.inter(
                           fontSize: 12,
                           color: secondary,
@@ -420,8 +442,10 @@ class _MonthlyComparisonPageState extends State<MonthlyComparisonPage> {
                       Eyebrow('BULAN LALU', color: secondary),
                       const SizedBox(height: AppTheme.space4),
                       Text(
-                        DateFormat('MMM yyyy', 'id_ID')
-                            .format(DateTime.parse('$_previousMonth-01')),
+                        DateFormat(
+                          'MMM yyyy',
+                          'id_ID',
+                        ).format(DateTime.parse('$_previousMonth-01')),
                         style: GoogleFonts.inter(
                           fontSize: 12,
                           color: secondary,
@@ -449,16 +473,9 @@ class _MonthlyComparisonPageState extends State<MonthlyComparisonPage> {
           // Big delta
           Row(
             children: [
-              AccentBar(
-                width: 24,
-                height: 2,
-                color: changeColor,
-              ),
+              AccentBar(width: 24, height: 2, color: changeColor),
               const SizedBox(width: AppTheme.space8),
-              Eyebrow(
-                isUp ? 'NAIK' : 'TURUN',
-                color: changeColor,
-              ),
+              Eyebrow(isUp ? 'NAIK' : 'TURUN', color: changeColor),
             ],
           ),
           const SizedBox(height: AppTheme.space8),
@@ -508,10 +525,7 @@ class _MonthlyComparisonPageState extends State<MonthlyComparisonPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const EditorialSectionHeader(
-          eyebrow: 'TAFSIR',
-          title: 'Apa artinya?',
-        ),
+        const EditorialSectionHeader(eyebrow: 'TAFSIR', title: 'Apa artinya?'),
         Padding(
           padding: const EdgeInsets.fromLTRB(
             AppTheme.pageGutter,
@@ -524,11 +538,7 @@ class _MonthlyComparisonPageState extends State<MonthlyComparisonPage> {
             children: [
               Text(
                 interpretation,
-                style: GoogleFonts.inter(
-                  fontSize: 14,
-                  height: 1.7,
-                  color: ink,
-                ),
+                style: GoogleFonts.inter(fontSize: 14, height: 1.7, color: ink),
               ),
               const SizedBox(height: AppTheme.space12),
               Text(
@@ -565,10 +575,7 @@ class _MonthlyComparisonPageState extends State<MonthlyComparisonPage> {
           title: '${categories.length} entri',
         ),
         for (final cat in categories)
-          _CategoryComparisonRow(
-            cat: cat,
-            money: money,
-          ),
+          _CategoryComparisonRow(cat: cat, money: money),
       ],
     );
   }
@@ -634,14 +641,20 @@ class _CategoryComparisonRow extends StatelessWidget {
     final expense = ThemeUtils.getExpenseColor(context);
     final income = ThemeUtils.getIncomeColor(context);
     final isDark = ThemeUtils.isDarkMode(context);
-    final hairline = isDark ? AppTheme.darkHairlineColor : AppTheme.hairlineColor;
+    final hairline = isDark
+        ? AppTheme.darkHairlineColor
+        : AppTheme.hairlineColor;
     final change = cat['change'] as double;
     final isSignificant = cat['isSignificant'] as bool;
     final isUp = change >= 0;
     final changeColor = isUp ? expense : income;
     final currentAmount = (cat['currentAmount'] as num).toDouble();
     final previousAmount = (cat['previousAmount'] as num).toDouble();
-    final maxOfTwo = (currentAmount > previousAmount ? currentAmount : previousAmount).clamp(1, double.infinity);
+    final maxOfTwo =
+        (currentAmount > previousAmount ? currentAmount : previousAmount).clamp(
+          1,
+          double.infinity,
+        );
     final currentRatio = (currentAmount / maxOfTwo).clamp(0.0, 1.0);
     final previousRatio = (previousAmount / maxOfTwo).clamp(0.0, 1.0);
 
@@ -682,9 +695,7 @@ class _CategoryComparisonRow extends StatelessWidget {
                         ),
                         const SizedBox(height: AppTheme.space4),
                         Text(
-                          isSignificant
-                              ? 'Signifikan'
-                              : 'Tidak signifikan',
+                          isSignificant ? 'Signifikan' : 'Tidak signifikan',
                           style: GoogleFonts.inter(
                             fontSize: 11,
                             color: secondary,

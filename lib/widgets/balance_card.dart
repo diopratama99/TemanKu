@@ -82,7 +82,7 @@ class ModernBalanceCard extends StatelessWidget {
 
           // Display amount — typography-first hero
           Text(
-            'Saldo bersih bulan ini',
+            'Sisa Saldo',
             style: GoogleFonts.inter(
               fontSize: 13,
               color: secondary,

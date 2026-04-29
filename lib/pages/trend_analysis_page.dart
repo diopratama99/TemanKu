@@ -59,7 +59,9 @@ class _TrendAnalysisPageState extends State<TrendAnalysisPage> {
         endDate: DateFormat('yyyy-MM-dd').format(end),
       );
       // Sort ascending for trend analysis
-      transactions.sort((a, b) => (a['date'] as String).compareTo(b['date'] as String));
+      transactions.sort(
+        (a, b) => (a['date'] as String).compareTo(b['date'] as String),
+      );
 
       // Kelompokkan berdasarkan periode
       final groupedData = _groupByPeriod(transactions);
@@ -190,10 +192,7 @@ class _TrendAnalysisPageState extends State<TrendAnalysisPage> {
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: AppTheme.pageGutter),
           child: Row(
-            children: [
-              tab('BULANAN', 'monthly'),
-              tab('MINGGUAN', 'weekly'),
-            ],
+            children: [tab('BULANAN', 'monthly'), tab('MINGGUAN', 'weekly')],
           ),
         ),
         const Hairline(),
@@ -222,64 +221,68 @@ class _TrendAnalysisPageState extends State<TrendAnalysisPage> {
                 ),
               )
             : _transactions.isEmpty
-                ? Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      EditorialHeader(
-                        eyebrow: 'TREN',
-                        title: 'Analisa tren.',
-                        titleSize: 36,
-                      ),
-                      const Spacer(),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: AppTheme.pageGutter,
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Eyebrow('KOSONG', color: secondary),
-                            const SizedBox(height: AppTheme.space12),
-                            DisplayTitle(
-                              'Belum ada\ndata transaksi.',
-                              size: 28,
-                            ),
-                            const SizedBox(height: AppTheme.space12),
-                            Text(
-                              'Tambah transaksi untuk melihat analisa tren.',
-                              style: GoogleFonts.inter(
-                                fontSize: 13,
-                                color: secondary,
-                                height: 1.6,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const Spacer(flex: 2),
-                    ],
-                  )
-                : ListView(
-                    padding: EdgeInsets.zero,
-                    children: [
-                      EditorialHeader(
-                        eyebrow: 'TREN',
-                        title: 'Analisa tren.',
-                        titleSize: 36,
-                        metaEyebrow: 'PERIODE',
-                        meta: _period == 'monthly'
-                            ? 'Per bulan'
-                            : 'Per minggu',
-                      ),
-                      _buildPeriodSelector(),
-                      _buildTrendChart(),
-                      _buildExpenseTrendInsight(),
-                      _buildPredictionCard(),
-                      _buildCorrelationCard(),
-                      _buildStatisticsCard(),
-                      const SizedBox(height: AppTheme.space40),
-                    ],
+            ? Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  EditorialHeader(
+                    eyebrow: 'TREN',
+                    title: 'Analisa tren.',
+                    titleSize: 36,
+                    showBackButton: true,
                   ),
+                  const Spacer(),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppTheme.pageGutter,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Eyebrow('KOSONG', color: secondary),
+                        const SizedBox(height: AppTheme.space12),
+                        DisplayTitle('Belum ada\ndata transaksi.', size: 28),
+                        const SizedBox(height: AppTheme.space12),
+                        Text(
+                          'Tambah transaksi untuk melihat analisa tren.',
+                          style: GoogleFonts.inter(
+                            fontSize: 13,
+                            color: secondary,
+                            height: 1.6,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Spacer(flex: 2),
+                ],
+              )
+            : Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  EditorialHeader(
+                    eyebrow: 'TREN',
+                    title: 'Analisa tren.',
+                    titleSize: 36,
+                    metaEyebrow: 'PERIODE',
+                    meta: _period == 'monthly' ? 'Per bulan' : 'Per minggu',
+                    showBackButton: true,
+                  ),
+                  Expanded(
+                    child: ListView(
+                      padding: EdgeInsets.zero,
+                      children: [
+                        _buildPeriodSelector(),
+                        _buildTrendChart(),
+                        _buildExpenseTrendInsight(),
+                        _buildPredictionCard(),
+                        _buildCorrelationCard(),
+                        _buildStatisticsCard(),
+                        const SizedBox(height: AppTheme.space40),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
       ),
     );
   }
@@ -291,8 +294,9 @@ class _TrendAnalysisPageState extends State<TrendAnalysisPage> {
     final accent = ThemeUtils.getPrimaryColor(context);
     final expense = ThemeUtils.getExpenseColor(context);
     final isDark = ThemeUtils.isDarkMode(context);
-    final hairline =
-        isDark ? AppTheme.darkHairlineColor : AppTheme.hairlineColor;
+    final hairline = isDark
+        ? AppTheme.darkHairlineColor
+        : AppTheme.hairlineColor;
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(
@@ -494,9 +498,7 @@ class _TrendAnalysisPageState extends State<TrendAnalysisPage> {
           width: 20,
           height: 2,
           child: isDashed
-              ? CustomPaint(
-                  painter: DashedLinePainter(color: color),
-                )
+              ? CustomPaint(painter: DashedLinePainter(color: color))
               : Container(color: color),
         ),
         const SizedBox(width: AppTheme.space8),
@@ -552,21 +554,14 @@ class _TrendAnalysisPageState extends State<TrendAnalysisPage> {
               const SizedBox(height: AppTheme.space8),
               Text(
                 'rata-rata setiap ${_period == 'monthly' ? 'bulan' : 'minggu'}',
-                style: GoogleFonts.inter(
-                  fontSize: 13,
-                  color: secondary,
-                ),
+                style: GoogleFonts.inter(fontSize: 13, color: secondary),
               ),
               const SizedBox(height: AppTheme.space16),
               Text(
                 isIncreasing
                     ? 'Pengeluaranmu konsisten naik. Coba cek dan kontrol agar tidak melewati anggaran.'
                     : 'Pengeluaranmu menurun stabil. Pertahankan kebiasaan baik ini.',
-                style: GoogleFonts.inter(
-                  fontSize: 14,
-                  height: 1.6,
-                  color: ink,
-                ),
+                style: GoogleFonts.inter(fontSize: 14, height: 1.6, color: ink),
               ),
             ],
           ),
@@ -635,11 +630,7 @@ class _TrendAnalysisPageState extends State<TrendAnalysisPage> {
               const SizedBox(height: AppTheme.space12),
               Row(
                 children: [
-                  Container(
-                    width: 8,
-                    height: 8,
-                    color: accent,
-                  ),
+                  Container(width: 8, height: 8, color: accent),
                   const SizedBox(width: AppTheme.space8),
                   Text(
                     '${isUp ? '+' : ''}${change.toStringAsFixed(1)}%',
@@ -652,10 +643,7 @@ class _TrendAnalysisPageState extends State<TrendAnalysisPage> {
                   const SizedBox(width: AppTheme.space8),
                   Text(
                     'dari rata-rata',
-                    style: GoogleFonts.inter(
-                      fontSize: 12,
-                      color: secondary,
-                    ),
+                    style: GoogleFonts.inter(fontSize: 12, color: secondary),
                   ),
                 ],
               ),
@@ -807,10 +795,7 @@ class _TrendAnalysisPageState extends State<TrendAnalysisPage> {
                     const SizedBox(height: AppTheme.space4),
                     Text(
                       caption,
-                      style: GoogleFonts.inter(
-                        fontSize: 12,
-                        color: secondary,
-                      ),
+                      style: GoogleFonts.inter(fontSize: 12, color: secondary),
                     ),
                   ],
                 ),

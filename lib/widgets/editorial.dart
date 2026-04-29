@@ -43,16 +43,12 @@ class Hairline extends StatelessWidget {
   final Color? color;
   final EdgeInsetsGeometry? margin;
 
-  const Hairline({
-    this.thickness = 1.0,
-    this.color,
-    this.margin,
-    super.key,
-  });
+  const Hairline({this.thickness = 1.0, this.color, this.margin, super.key});
 
   @override
   Widget build(BuildContext context) {
-    final c = color ??
+    final c =
+        color ??
         (ThemeUtils.isDarkMode(context)
             ? AppTheme.darkHairlineColor
             : AppTheme.hairlineColor);
@@ -80,7 +76,8 @@ class VerticalHairline extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final c = color ??
+    final c =
+        color ??
         (ThemeUtils.isDarkMode(context)
             ? AppTheme.darkHairlineColor
             : AppTheme.hairlineColor);
@@ -94,12 +91,7 @@ class AccentBar extends StatelessWidget {
   final double height;
   final Color? color;
 
-  const AccentBar({
-    this.width = 32,
-    this.height = 2,
-    this.color,
-    super.key,
-  });
+  const AccentBar({this.width = 32, this.height = 2, this.color, super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -165,6 +157,8 @@ class EditorialHeader extends StatelessWidget {
   final EdgeInsetsGeometry padding;
   final Widget? trailing;
   final bool showHairline;
+  final bool showBackButton;
+  final VoidCallback? onBack;
 
   /// When true, draws a thin green rule at the top of the header
   /// as the magazine "masthead". On by default.
@@ -185,20 +179,20 @@ class EditorialHeader extends StatelessWidget {
     this.trailing,
     this.showHairline = true,
     this.showMasthead = true,
+    this.showBackButton = false,
+    this.onBack,
     super.key,
   });
 
   @override
   Widget build(BuildContext context) {
     final secondary = ThemeUtils.getTextSecondary(context);
+    final canPop = Navigator.canPop(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         if (showMasthead)
-          Container(
-            height: 1,
-            color: ThemeUtils.getAccentGreen(context),
-          ),
+          Container(height: 1, color: ThemeUtils.getAccentGreen(context)),
         Padding(
           padding: padding,
           child: Column(
@@ -214,7 +208,22 @@ class EditorialHeader extends StatelessWidget {
                       children: [
                         Row(
                           children: [
-                            const AccentBar(width: 24, height: 2),
+                            if (showBackButton && canPop)
+                              GestureDetector(
+                                behavior: HitTestBehavior.opaque,
+                                onTap: onBack ?? () => Navigator.pop(context),
+                                child: SizedBox(
+                                  width: 24,
+                                  height: 20,
+                                  child: Icon(
+                                    Icons.chevron_left,
+                                    size: 20,
+                                    color: secondary,
+                                  ),
+                                ),
+                              )
+                            else
+                              const AccentBar(width: 24, height: 2),
                             const SizedBox(width: AppTheme.space8),
                             Eyebrow(eyebrow, color: secondary),
                           ],
@@ -351,8 +360,8 @@ class EditorialCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = ThemeUtils.isDarkMode(context);
-    final bg = background ??
-        (isDark ? AppTheme.darkCardColor : AppTheme.cardColor);
+    final bg =
+        background ?? (isDark ? AppTheme.darkCardColor : AppTheme.cardColor);
     final border = isDark ? AppTheme.darkHairlineColor : AppTheme.hairlineColor;
 
     final container = Container(
@@ -452,10 +461,7 @@ class EditorialListRow extends StatelessWidget {
                   subtitle!,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.inter(
-                    fontSize: 12,
-                    color: secondary,
-                  ),
+                  style: GoogleFonts.inter(fontSize: 12, color: secondary),
                 ),
               ],
             ],
@@ -498,10 +504,7 @@ class EditorialListRow extends StatelessWidget {
 
     return Column(
       mainAxisSize: MainAxisSize.min,
-      children: [
-        tappable,
-        if (showHairline) const Hairline(),
-      ],
+      children: [tappable, if (showHairline) const Hairline()],
     );
   }
 }
@@ -637,7 +640,9 @@ class EditorialTag extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = ThemeUtils.isDarkMode(context);
     final ink = isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary;
-    final paper = isDark ? AppTheme.darkBackgroundColor : AppTheme.backgroundColor;
+    final paper = isDark
+        ? AppTheme.darkBackgroundColor
+        : AppTheme.backgroundColor;
 
     return Material(
       color: Colors.transparent,
@@ -651,10 +656,7 @@ class EditorialTag extends StatelessWidget {
           ),
           decoration: BoxDecoration(
             color: selected ? ink : paper,
-            border: Border.all(
-              color: ink,
-              width: AppTheme.hairlineWidth,
-            ),
+            border: Border.all(color: ink, width: AppTheme.hairlineWidth),
             borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
           ),
           child: Text(

@@ -73,10 +73,9 @@ class _ImportExportPageState extends State<ImportExportPage> {
       p.join(tempDir.path, 'temanku_${_iso(_start)}_${_iso(_end)}.csv'),
     );
     await file.writeAsString(csv);
-    await Share.shareXFiles([XFile(file.path)], text: 'Export Temanku');
+    await Share.shareXFiles([XFile(file.path)], text: 'Export TemanKu');
     setState(() => _busy = false);
   }
-
 
   Future<void> _importCsv() async {
     final res = await FilePicker.platform.pickFiles(
@@ -151,9 +150,8 @@ class _ImportExportPageState extends State<ImportExportPage> {
     return Scaffold(
       backgroundColor: paper,
       body: SafeArea(
-        child: ListView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: EdgeInsets.zero,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             EditorialHeader(
               eyebrow: 'ARSIP',
@@ -161,113 +159,121 @@ class _ImportExportPageState extends State<ImportExportPage> {
               metaEyebrow: 'PERIODE',
               meta: '${_iso(_start)}\n${_iso(_end)}',
               titleSize: 32,
+              showBackButton: true,
             ),
+            Expanded(
+              child: ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: EdgeInsets.zero,
+                children: [
+                  // Period picker
+                  const SizedBox(height: AppTheme.space8),
+                  _IORowAction(
+                    eyebrow: 'MULAI',
+                    title: _iso(_start),
+                    caption: 'Tanggal awal export',
+                    onTap: () async {
+                      final picked = await showDatePicker(
+                        context: context,
+                        initialDate: _start,
+                        firstDate: DateTime(2000),
+                        lastDate: DateTime(2100),
+                      );
+                      if (picked != null) setState(() => _start = picked);
+                    },
+                  ),
+                  _IORowAction(
+                    eyebrow: 'AKHIR',
+                    title: _iso(_end),
+                    caption: 'Tanggal akhir export',
+                    onTap: () async {
+                      final picked = await showDatePicker(
+                        context: context,
+                        initialDate: _end,
+                        firstDate: DateTime(2000),
+                        lastDate: DateTime(2100),
+                      );
+                      if (picked != null) setState(() => _end = picked);
+                    },
+                  ),
 
-            // Period picker
-            const SizedBox(height: AppTheme.space8),
-            _IORowAction(
-              eyebrow: 'MULAI',
-              title: _iso(_start),
-              caption: 'Tanggal awal export',
-              onTap: () async {
-                final picked = await showDatePicker(
-                  context: context,
-                  initialDate: _start,
-                  firstDate: DateTime(2000),
-                  lastDate: DateTime(2100),
-                );
-                if (picked != null) setState(() => _start = picked);
-              },
-            ),
-            _IORowAction(
-              eyebrow: 'AKHIR',
-              title: _iso(_end),
-              caption: 'Tanggal akhir export',
-              onTap: () async {
-                final picked = await showDatePicker(
-                  context: context,
-                  initialDate: _end,
-                  firstDate: DateTime(2000),
-                  lastDate: DateTime(2100),
-                );
-                if (picked != null) setState(() => _end = picked);
-              },
-            ),
+                  // Export section
+                  const SizedBox(height: AppTheme.space24),
+                  const EditorialSectionHeader(
+                    eyebrow: 'EKSPOR',
+                    title: 'Bagikan catatanmu',
+                  ),
+                  _IORowAction(
+                    eyebrow: 'CSV',
+                    title: 'Bagikan file CSV',
+                    caption: 'Buka share sheet sistem',
+                    icon: Icons.ios_share_outlined,
+                    onTap: _busy ? null : _exportCsv,
+                  ),
+                  // Import section
+                  const SizedBox(height: AppTheme.space24),
+                  const EditorialSectionHeader(
+                    eyebrow: 'IMPOR',
+                    title: 'Muat ulang dari berkas',
+                  ),
+                  _IORowAction(
+                    eyebrow: 'CSV',
+                    title: 'Pilih berkas .csv',
+                    caption: 'Format kolom: date, type, category, amount, ...',
+                    icon: Icons.file_upload_outlined,
+                    onTap: _busy ? null : _importCsv,
+                  ),
 
-            // Export section
-            const SizedBox(height: AppTheme.space24),
-            const EditorialSectionHeader(
-              eyebrow: 'EKSPOR',
-              title: 'Bagikan catatanmu',
-            ),
-            _IORowAction(
-              eyebrow: 'CSV',
-              title: 'Bagikan file CSV',
-              caption: 'Buka share sheet sistem',
-              icon: Icons.ios_share_outlined,
-              onTap: _busy ? null : _exportCsv,
-            ),
-            // Import section
-            const SizedBox(height: AppTheme.space24),
-            const EditorialSectionHeader(
-              eyebrow: 'IMPOR',
-              title: 'Muat ulang dari berkas',
-            ),
-            _IORowAction(
-              eyebrow: 'CSV',
-              title: 'Pilih berkas .csv',
-              caption: 'Format kolom: date, type, category, amount, ...',
-              icon: Icons.file_upload_outlined,
-              onTap: _busy ? null : _importCsv,
-            ),
-
-            if (_busy) ...[
-              const Hairline(),
-              Padding(
-                padding: const EdgeInsets.all(AppTheme.space24),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    SizedBox(
-                      width: 14,
-                      height: 14,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 1.5,
-                        color: accent,
-                      ),
-                    ),
-                    const SizedBox(width: AppTheme.space12),
-                    Text(
-                      'Memproses...',
-                      style: GoogleFonts.inter(
-                        fontSize: 12,
-                        letterSpacing: 1.6,
-                        fontWeight: FontWeight.w600,
-                        color: secondary,
+                  if (_busy) ...[
+                    const Hairline(),
+                    Padding(
+                      padding: const EdgeInsets.all(AppTheme.space24),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          SizedBox(
+                            width: 14,
+                            height: 14,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 1.5,
+                              color: accent,
+                            ),
+                          ),
+                          const SizedBox(width: AppTheme.space12),
+                          Text(
+                            'Memproses...',
+                            style: GoogleFonts.inter(
+                              fontSize: 12,
+                              letterSpacing: 1.6,
+                              fontWeight: FontWeight.w600,
+                              color: secondary,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
-                ),
-              ),
-            ],
-            const SizedBox(height: AppTheme.space40),
+                  const SizedBox(height: AppTheme.space40),
 
-            Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppTheme.pageGutter,
-              ),
-              child: Text(
-                'CSV Temanku menggunakan koma sebagai pemisah. Kolom wajib: date, type, category, amount.',
-                style: GoogleFonts.inter(
-                  fontSize: 12,
-                  height: 1.6,
-                  color: secondary,
-                ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppTheme.pageGutter,
+                    ),
+                    child: Text(
+                      'CSV TemanKu menggunakan koma sebagai pemisah. Kolom wajib: date, type, category, amount.',
+                      style: GoogleFonts.inter(
+                        fontSize: 12,
+                        height: 1.6,
+                        color: secondary,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: AppTheme.space32),
+                  _ColophonNote(ink: ink, secondary: secondary),
+                  const SizedBox(height: AppTheme.space40),
+                ],
               ),
             ),
-            const SizedBox(height: AppTheme.space32),
-            _ColophonNote(ink: ink, secondary: secondary),
-            const SizedBox(height: AppTheme.space40),
           ],
         ),
       ),
@@ -344,11 +350,7 @@ class _IORowAction extends StatelessWidget {
                   ),
                   if (icon != null) ...[
                     const SizedBox(width: AppTheme.space16),
-                    Icon(
-                      icon,
-                      size: 22,
-                      color: accent ? accentColor : ink,
-                    ),
+                    Icon(icon, size: 22, color: accent ? accentColor : ink),
                   ],
                 ],
               ),

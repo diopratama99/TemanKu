@@ -92,7 +92,9 @@ class _CategoriesPageState extends State<CategoriesPage> {
       isScrollControlled: true,
       backgroundColor: paper,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(AppTheme.radiusLarge)),
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(AppTheme.radiusLarge),
+        ),
       ),
       builder: (sheetContext) => Padding(
         padding: EdgeInsets.only(
@@ -111,7 +113,11 @@ class _CategoriesPageState extends State<CategoriesPage> {
             children: [
               Row(
                 children: [
-                  AccentBar(width: 24, height: 2, color: ThemeUtils.getPrimaryColor(sheetContext)),
+                  AccentBar(
+                    width: 24,
+                    height: 2,
+                    color: ThemeUtils.getPrimaryColor(sheetContext),
+                  ),
                   const SizedBox(width: AppTheme.space8),
                   Eyebrow(eyebrow, color: secondary),
                 ],
@@ -138,10 +144,11 @@ class _CategoriesPageState extends State<CategoriesPage> {
               TextField(
                 controller: nameCtrl,
                 textCapitalization: TextCapitalization.words,
-                style: GoogleFonts.spaceGrotesk(fontSize: 18, fontWeight: FontWeight.w500),
-                decoration: const InputDecoration(
-                  hintText: 'Misal: Makanan',
+                style: GoogleFonts.spaceGrotesk(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w500,
                 ),
+                decoration: const InputDecoration(hintText: 'Misal: Makanan'),
               ),
               const SizedBox(height: AppTheme.space32),
               SizedBox(
@@ -149,7 +156,10 @@ class _CategoriesPageState extends State<CategoriesPage> {
                 child: FilledButton(
                   onPressed: () async {
                     if (nameCtrl.text.trim().isEmpty) {
-                      showErrorSnackbar(sheetContext, 'Nama kategori tidak boleh kosong');
+                      showErrorSnackbar(
+                        sheetContext,
+                        'Nama kategori tidak boleh kosong',
+                      );
                       return;
                     }
                     await onSubmit(nameCtrl.text.trim(), emojiCtrl.text.trim());
@@ -229,6 +239,7 @@ class _CategoriesPageState extends State<CategoriesPage> {
               metaEyebrow: 'JUMLAH',
               meta: '${_categories.length} item',
               titleSize: 36,
+              showBackButton: true,
             ),
             // Type tabs (segmented underline)
             Padding(
@@ -329,13 +340,6 @@ class _CategoriesPageState extends State<CategoriesPage> {
                   ),
                   child: Row(
                     children: [
-                      AccentBar(
-                        width: 24,
-                        height: 2,
-                        color: ThemeUtils.getPrimaryColor(context),
-                      ),
-                      const SizedBox(width: AppTheme.space8),
-                      Eyebrow('TAMBAH', color: secondary),
                       const Spacer(),
                       Text(
                         isExpense
@@ -456,7 +460,11 @@ class _CategoryRow extends StatelessWidget {
                   ),
                   IconButton(
                     onPressed: onDelete,
-                    icon: Icon(Icons.delete_outline, size: 20, color: secondary),
+                    icon: Icon(
+                      Icons.delete_outline,
+                      size: 20,
+                      color: secondary,
+                    ),
                     splashRadius: 22,
                     visualDensity: VisualDensity.compact,
                   ),

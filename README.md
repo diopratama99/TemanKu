@@ -1,10 +1,10 @@
-# Temanku Mobile 📱
+# TemanKu Mobile 📱
 
 Teman kecil yang bantu jagain keuanganmu
 
 ## Deskripsi
 
-Temanku adalah aplikasi manajemen keuangan pribadi yang membantu Anda melacak pengeluaran, pemasukan, dan mengelola budget dengan mudah dan intuitif.
+TemanKu adalah aplikasi manajemen keuangan pribadi yang membantu Anda melacak pengeluaran, pemasukan, dan mengelola budget dengan mudah dan intuitif. Dilengkapi dengan AI-powered voice input dan analisis statistik yang mendalam.
 
 ## Fitur
 
@@ -16,7 +16,7 @@ Temanku adalah aplikasi manajemen keuangan pribadi yang membantu Anda melacak pe
 - 🎯 **Budget** - Atur budget per kategori dengan monitoring real-time
 - 💎 **Tabungan** - Catat dan monitor target tabungan
 - 📈 **Riwayat** - Lihat riwayat transaksi lengkap dengan filter
-- � **Statistik** - Analisa keuangan dengan berbagai chart dan insight
+- 📊 **Statistik** - Analisa keuangan dengan berbagai chart dan insight
 - 📈 **Trend Analysis** - Analisa tren keuangan dengan prediksi AI
   - Grafik line chart dengan trend prediction
   - Mode bulanan dan mingguan
@@ -24,9 +24,19 @@ Temanku adalah aplikasi manajemen keuangan pribadi yang membantu Anda melacak pe
   - Statistical insights (mean, std dev, etc)
 - 🔄 **Monthly Comparison** - Bandingkan pengeluaran 2 bulan dengan uji hipotesis statistik
 - 📤 **Import/Export** - Import dan export data dalam format CSV
-- 🔐 **Autentikasi** - Login dengan email/password atau Google Sign-In
+- 🔐 **Autentikasi** - Login dengan email/password atau Google Sign-In via Supabase
 - 🔄 **Reset Data** - Hapus semua data dengan verifikasi 2 langkah
-- 🌙 **Dark Mode** - Support mode gelap (coming soon)
+- 🎙️ **Voice to Transaction** - Tambah transaksi dengan bicara menggunakan AI
+  - Speech-to-text dengan dukungan bahasa Indonesia
+  - AI parsing untuk mengenali jumlah, kategori, dan deskripsi
+  - Multi-transaction support (bisa mencatat beberapa transaksi sekaligus)
+  - Preview dan edit sebelum menyimpan
+- 🏠 **Android Widget** - Homescreen widget 3x1 untuk akses cepat
+  - Tekan ikon mic untuk langsung ke halaman voice transaction
+  - Works dengan cold start dan warm start
+- 🎨 **Welcome Onboarding** - Editorial onboarding untuk pengguna baru
+  - Magazine-style design dengan editorial layout
+  - Progressive disclosure untuk fitur-fitur utama
 
 ## Getting Started
 
@@ -94,11 +104,13 @@ flutter build ios --release
 
 - **Framework**: Flutter 3.9.2+
 - **State Management**: Provider
-- **Database**: SQLite (sqflite)
+- **Database**: Supabase 
 - **Charts**: fl_chart
 - **Statistical Analysis**: Custom implementation (Linear Regression, Hypothesis Testing)
-- **Authentication**: Google Sign-In
-- **File Handling**: file_picker, share_plus
+- **Authentication**: Supabase Auth
+- **Voice Processing**: speech_to_text, permission_handler
+- **AI/NLP**: Supabase Edge Functions (Deno + OpenAI) untuk parsing transaksi
+- **File Handling**: file_picker, share_plus, path_provider
 - **Image Handling**: image_picker
 - **Icons**: flutter_launcher_icons
 - **Splash Screen**: flutter_native_splash
@@ -132,7 +144,9 @@ lib/
 │   ├── home_page.dart       # Home with bottom navigation
 │   ├── dashboard_page.dart  # Dashboard overview
 │   ├── login_page.dart      # Login & Register
+│   ├── welcome_page.dart    # Onboarding flow untuk pengguna baru
 │   ├── add_transaction_page.dart  # Add transaction form
+│   ├── voice_add_transaction_page.dart # Voice-to-transaction dengan AI
 │   ├── transactions_page.dart     # Transaction history
 │   ├── categories_page.dart       # Category management
 │   ├── account_transfers_page.dart # Account transfers
@@ -144,21 +158,36 @@ lib/
 │   ├── profile_page.dart          # User profile
 │   └── import_export_page.dart    # Import/Export data
 ├── services/
-│   └── auth_service.dart    # Authentication service
+│   ├── auth_service.dart    # Authentication service (Supabase)
+│   ├── voice_transaction_service.dart # Voice parsing & AI service
+│   └── launch_action_service.dart # Widget intent handler
 ├── state/
-│   └── auth_notifier.dart   # Authentication state
+│   ├── auth_notifier.dart   # Authentication state
+│   └── theme_notifier.dart  # Theme (light/dark) state
 ├── theme/
 │   └── app_theme.dart       # Theme configuration
 ├── utils/
 │   ├── snackbar_utils.dart  # Snackbar helpers
-│   └── trend_analysis.dart  # Statistical analysis utilities
+│   ├── trend_analysis.dart  # Statistical analysis utilities
+│   └── app_localizations.dart # Localization strings
 └── widgets/
     ├── app_bottom_navigation.dart
     ├── balance_card.dart
+    ├── editorial.dart       # Editorial magazine-style widgets
     ├── form_fields.dart
     ├── main_navigation_scaffold.dart
     ├── state_widgets.dart
     └── transaction_list_item.dart
+
+android/app/src/main/
+├── AndroidManifest.xml              # Widget receiver registration
+├── kotlin/com/temanlabs/temanku/
+│   ├── MainActivity.kt             # MethodChannel for widget intents
+│   └── TemanKuVoiceWidgetProvider.kt # AppWidgetProvider implementation
+└── res/
+    ├── layout/temanku_voice_widget.xml    # Widget UI layout
+    ├── xml/temanku_voice_widget_info.xml  # Widget metadata
+    └── drawable/temanku_voice_widget_background.xml # Widget styling
 ```
 
 ## Configuration
@@ -175,14 +204,42 @@ Untuk menggunakan fitur Google Sign-In, Anda perlu:
 
 ### Database
 
-Aplikasi menggunakan SQLite untuk penyimpanan lokal. Database akan otomatis dibuat saat pertama kali aplikasi dijalankan.
+Aplikasi menggunakan SQLite untuk penyimpanan lokal dan Supabase untuk authentication serta cloud functions. Database akan otomatis dibuat saat pertama kali aplikasi dijalankan.
+
+### Supabase Setup
+
+1. Buat project di [Supabase Dashboard](https://supabase.com/)
+2. Enable Email/Password dan Google OAuth providers
+3. Deploy Edge Function untuk parsing transaksi:
+   ```bash
+   supabase functions deploy parse-transaction
+   ```
+4. Tambahkan OpenAI API key ke Supabase secrets:
+   ```bash
+   supabase secrets set OPENAI_API_KEY=your_key_here
+   ```
+5. Copy `supabase.json` untuk konfigurasi lokal:
+   ```json
+   {
+     "SUPABASE_URL": "https://your-project.supabase.co",
+     "SUPABASE_ANON_KEY": "your-anon-key"
+   }
+   ```
+
+### Android Widget
+
+Widget 3x1 otomatis tersedia setelah instalasi. Untuk menambahkan ke homescreen:
+1. Long press di area kosong homescreen
+2. Pilih "Widgets"
+3. Cari "TemanKu"
+4. Drag widget 3x1 ke homescreen
 
 ## Development
 
 ### Run in Debug Mode
 
 ```bash
-flutter run
+flutter run --dart-define-from-file=supabase.json
 ```
 
 ### Run Tests
@@ -205,7 +262,7 @@ flutter format .
 
 ## License
 
-Copyright © 2025 Teman Labs. All rights reserved.
+Copyright © 2026 Teman Labs. All rights reserved.
 
 ## Author
 

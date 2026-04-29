@@ -68,6 +68,7 @@ class _AccountTransfersPageState extends State<AccountTransfersPage> {
                     metaEyebrow: 'BULAN',
                     meta: _monthLabel(),
                     titleSize: 36,
+                    showBackButton: true,
                   ),
                   Expanded(
                     child: ListView(
@@ -111,7 +112,8 @@ class _AccountTransfersPageState extends State<AccountTransfersPage> {
                         Material(
                           color: Colors.transparent,
                           child: InkWell(
-                            onTap: () => setState(() => _showHistory = !_showHistory),
+                            onTap: () =>
+                                setState(() => _showHistory = !_showHistory),
                             child: Padding(
                               padding: const EdgeInsets.symmetric(
                                 horizontal: AppTheme.pageGutter,
@@ -121,7 +123,8 @@ class _AccountTransfersPageState extends State<AccountTransfersPage> {
                                 children: [
                                   Expanded(
                                     child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
                                         Eyebrow('RIWAYAT', color: secondary),
                                         const SizedBox(height: AppTheme.space4),
@@ -156,9 +159,11 @@ class _AccountTransfersPageState extends State<AccountTransfersPage> {
                               row: _rows[i],
                               money: _money,
                               onDelete: () async {
-                                await context.read<AppDatabase>().deleteAccountTransfer(
-                                  _rows[i]['id'] as int,
-                                );
+                                await context
+                                    .read<AppDatabase>()
+                                    .deleteAccountTransfer(
+                                      _rows[i]['id'] as int,
+                                    );
                                 _rows.removeAt(i);
                                 if (mounted) setState(() {});
                               },
@@ -182,13 +187,6 @@ class _AccountTransfersPageState extends State<AccountTransfersPage> {
                         ),
                         child: Row(
                           children: [
-                            AccentBar(
-                              width: 24,
-                              height: 2,
-                              color: ThemeUtils.getPrimaryColor(context),
-                            ),
-                            const SizedBox(width: AppTheme.space8),
-                            Eyebrow('TAMBAH', color: secondary),
                             const Spacer(),
                             Text(
                               'Mutasi antar akun',
@@ -560,7 +558,9 @@ class _TransferHistoryRow extends StatelessWidget {
                           color: ink,
                         ),
                       ),
-                      if (((row['note'] as String?) ?? '').trim().isNotEmpty) ...[
+                      if (((row['note'] as String?) ?? '')
+                          .trim()
+                          .isNotEmpty) ...[
                         const SizedBox(height: AppTheme.space4),
                         Text(
                           row['note'] as String,

@@ -63,7 +63,6 @@ class _SavingsPageState extends State<SavingsPage> {
         .where((e) => e['archived_at'] != null)
         .toList();
     final paper = ThemeUtils.getBackgroundColor(context);
-    final secondary = ThemeUtils.getTextSecondary(context);
     final ink = ThemeUtils.getTextPrimary(context);
 
     return Scaffold(
@@ -80,6 +79,7 @@ class _SavingsPageState extends State<SavingsPage> {
                     metaEyebrow: 'AKTIF',
                     meta: '${activeGoals.length} target',
                     titleSize: 36,
+                    showBackButton: true,
                   ),
                   if (activeGoals.isNotEmpty) _buildEditorialSummary(),
                   Expanded(
@@ -138,13 +138,6 @@ class _SavingsPageState extends State<SavingsPage> {
                         ),
                         child: Row(
                           children: [
-                            AccentBar(
-                              width: 24,
-                              height: 2,
-                              color: ThemeUtils.getPrimaryColor(context),
-                            ),
-                            const SizedBox(width: AppTheme.space8),
-                            Eyebrow('TAMBAH', color: secondary),
                             const Spacer(),
                             Text(
                               'Target tabungan baru',
@@ -203,10 +196,7 @@ class _SavingsPageState extends State<SavingsPage> {
           const SizedBox(height: AppTheme.space4),
           Text(
             'dari ${_money(_totalTarget)}',
-            style: GoogleFonts.inter(
-              fontSize: 13,
-              color: secondary,
-            ),
+            style: GoogleFonts.inter(fontSize: 13, color: secondary),
           ),
           const SizedBox(height: AppTheme.space20),
           Container(
@@ -330,7 +320,9 @@ class _SavingsPageState extends State<SavingsPage> {
   Future<void> _showGoalDetails(Map<String, dynamic> goal) async {
     // Show allocations history
     final goalId = goal['id'] as int;
-    final allocations = await context.read<AppDatabase>().client
+    final allocations = await context
+        .read<AppDatabase>()
+        .client
         .from('savings_allocations')
         .select()
         .eq('goal_id', goalId)
@@ -542,11 +534,11 @@ class _SavingsPageState extends State<SavingsPage> {
               }
 
               await context.read<AppDatabase>().insertSavingsAllocation({
-                    'goal_id': goal['id'],
-                    'amount': amount,
-                    'date': DateFormat('yyyy-MM-dd').format(DateTime.now()),
-                    'note': noteCtrl.text.trim(),
-                  });
+                'goal_id': goal['id'],
+                'amount': amount,
+                'date': DateFormat('yyyy-MM-dd').format(DateTime.now()),
+                'note': noteCtrl.text.trim(),
+              });
 
               if (!mounted) return;
               Navigator.pop(context);
@@ -655,10 +647,9 @@ class _SavingsPageState extends State<SavingsPage> {
     );
 
     if (confirm == true) {
-      await context.read<AppDatabase>().updateSavingsGoal(
-        goal['id'] as int,
-        {'archived_at': DateTime.now().toIso8601String()},
-      );
+      await context.read<AppDatabase>().updateSavingsGoal(goal['id'] as int, {
+        'archived_at': DateTime.now().toIso8601String(),
+      });
       if (!mounted) return;
       showSuccessSnackbar(context, 'Target berhasil diarsipkan');
       await _load();
@@ -666,10 +657,9 @@ class _SavingsPageState extends State<SavingsPage> {
   }
 
   Future<void> _unarchiveGoal(Map<String, dynamic> goal) async {
-    await context.read<AppDatabase>().updateSavingsGoal(
-      goal['id'] as int,
-      {'archived_at': null},
-    );
+    await context.read<AppDatabase>().updateSavingsGoal(goal['id'] as int, {
+      'archived_at': null,
+    });
     if (!mounted) return;
     showSuccessSnackbar(context, 'Target dikembalikan dari arsip');
     await _load();
@@ -698,9 +688,7 @@ class _SavingsPageState extends State<SavingsPage> {
     );
 
     if (confirm == true) {
-      await context.read<AppDatabase>().deleteSavingsGoal(
-        goal['id'] as int,
-      );
+      await context.read<AppDatabase>().deleteSavingsGoal(goal['id'] as int);
       if (!mounted) return;
       showSuccessSnackbar(context, 'Target berhasil dihapus');
       await _load();
@@ -743,7 +731,9 @@ class _GoalRow extends StatelessWidget {
     final accent = ThemeUtils.getPrimaryColor(context);
     final income = ThemeUtils.getIncomeColor(context);
     final isDark = ThemeUtils.isDarkMode(context);
-    final hairline = isDark ? AppTheme.darkHairlineColor : AppTheme.hairlineColor;
+    final hairline = isDark
+        ? AppTheme.darkHairlineColor
+        : AppTheme.hairlineColor;
     final progressColor = isArchived
         ? secondary
         : (isCompleted ? income : accent);
@@ -799,8 +789,11 @@ class _GoalRow extends StatelessWidget {
                       if (!isArchived)
                         IconButton(
                           onPressed: onAddAllocation,
-                          icon: Icon(Icons.add_circle_outline,
-                              size: 22, color: accent),
+                          icon: Icon(
+                            Icons.add_circle_outline,
+                            size: 22,
+                            color: accent,
+                          ),
                           tooltip: 'Tambah alokasi',
                           visualDensity: VisualDensity.compact,
                         ),

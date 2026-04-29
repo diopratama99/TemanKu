@@ -34,8 +34,10 @@ class AuthService {
       if (authUser != null) {
         _currentUser = {
           'id': authUser.id,
-          'name': authUser.userMetadata?['name'] ??
-              authUser.email?.split('@').first ?? 'Pengguna',
+          'name':
+              authUser.userMetadata?['name'] ??
+              authUser.email?.split('@').first ??
+              'Pengguna',
           'email': authUser.email,
           'picture': null,
         };
@@ -127,6 +129,39 @@ class AuthService {
 
   Future<void> refreshCurrentUser() async {
     await _loadProfile();
+  }
+
+  Future<String?> resetPasswordForEmail(String email) async {
+    try {
+      await _client.auth.resetPasswordForEmail(email.trim().toLowerCase());
+      return null;
+    } on AuthException catch (e) {
+      return 'Gagal mengirim kode: ${e.message}';
+    } catch (e) {
+      return 'Gagal mengirim kode: $e';
+    }
+  }
+
+  Future<String?> verifyOtpRecovery({
+    required String email,
+    required String token,
+  }) async {
+    try {
+      final res = await _client.auth.verifyOTP(
+        email: email.trim().toLowerCase(),
+        token: token.trim(),
+        type: OtpType.recovery,
+      );
+      if (res.session == null) {
+        return 'Kode salah atau sudah kedaluwarsa';
+      }
+      await _loadProfile();
+      return null;
+    } on AuthException catch (e) {
+      return 'Verifikasi gagal: ${e.message}';
+    } catch (e) {
+      return 'Verifikasi gagal: $e';
+    }
   }
 
   Future<String?> updatePassword(String newPassword) async {

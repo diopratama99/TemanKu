@@ -8,14 +8,18 @@ import '../theme/app_theme.dart';
 import '../utils/theme_utils.dart';
 import '../widgets/editorial.dart';
 import '../widgets/state_widgets.dart';
-import 'transactions_page.dart';
+import 'voice_add_transaction_page.dart';
 
 /// Editorial transaction composer — magazine "TULIS" page.
 class AddTransactionPage extends StatefulWidget {
   final bool showHistoryButton;
   final bool isModal;
 
-  const AddTransactionPage({super.key, this.showHistoryButton = true, this.isModal = false});
+  const AddTransactionPage({
+    super.key,
+    this.showHistoryButton = true,
+    this.isModal = false,
+  });
 
   @override
   State<AddTransactionPage> createState() => _AddTransactionPageState();
@@ -140,7 +144,11 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
             children: [
               Row(
                 children: [
-                  AccentBar(width: 24, height: 2, color: ThemeUtils.getPrimaryColor(dialogContext)),
+                  AccentBar(
+                    width: 24,
+                    height: 2,
+                    color: ThemeUtils.getPrimaryColor(dialogContext),
+                  ),
                   const SizedBox(width: AppTheme.space8),
                   const Eyebrow('TERBIT'),
                 ],
@@ -194,261 +202,212 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
 
     final content = Column(
       children: [
-            // Header
-            EditorialHeader(
-              eyebrow: 'TULIS',
-              title: 'Transaksi baru',
-              titleSize: 36,
-              padding: const EdgeInsets.fromLTRB(
-                AppTheme.pageGutter,
-                AppTheme.space20,
-                AppTheme.pageGutter,
-                AppTheme.space16,
-              ),
-              trailing: widget.showHistoryButton
-                  ? IconButton(
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) =>
-                                const TransactionsPage(hideAddButton: true),
-                          ),
-                        );
-                      },
-                      tooltip: 'Riwayat',
-                      icon: const Icon(Icons.history),
-                    )
-                  : null,
+        const SizedBox(height: AppTheme.space8),
+
+        Expanded(
+          child: ListView(
+            padding: EdgeInsets.fromLTRB(
+              AppTheme.pageGutter,
+              AppTheme.space8,
+              AppTheme.pageGutter,
+              widget.isModal
+                  ? AppTheme.space24
+                  : MediaQuery.of(context).viewInsets.bottom + AppTheme.space24,
             ),
+            children: [
+              // Voice input CTA
+              _buildVoiceCta(ink, secondary),
+              const SizedBox(height: AppTheme.space24),
 
-            Expanded(
-              child: ListView(
-                padding: EdgeInsets.fromLTRB(
-                  AppTheme.pageGutter,
-                  AppTheme.space8,
-                  AppTheme.pageGutter,
-                  widget.isModal
-                      ? AppTheme.space24
-                      : MediaQuery.of(context).viewInsets.bottom + AppTheme.space24,
-                ),
+              // Type segmented (underline style)
+              _buildTypeSegment(ink, secondary, amountColor),
+              const SizedBox(height: AppTheme.space32),
+
+              // Display amount
+              Eyebrow(
+                isExpense ? 'JUMLAH PENGELUARAN' : 'JUMLAH PEMASUKAN',
+                color: amountColor,
+                size: 11,
+              ),
+              const SizedBox(height: AppTheme.space8),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  // Type segmented (underline style)
-                  _buildTypeSegment(ink, secondary, amountColor),
-                  const SizedBox(height: AppTheme.space32),
-
-                  // Display amount
-                  Eyebrow(
-                    isExpense ? 'JUMLAH PENGELUARAN' : 'JUMLAH PEMASUKAN',
-                    color: amountColor,
-                    size: 11,
+                  Text(
+                    'Rp',
+                    style: GoogleFonts.spaceGrotesk(
+                      fontSize: 28,
+                      fontWeight: FontWeight.w500,
+                      color: secondary,
+                      letterSpacing: -0.6,
+                    ),
                   ),
-                  const SizedBox(height: AppTheme.space8),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.end,
+                  const SizedBox(width: AppTheme.space12),
+                  Expanded(
+                    child: TextField(
+                      controller: _amount,
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
+                      autofocus: true,
+                      style: GoogleFonts.spaceGrotesk(
+                        fontSize: 44,
+                        fontWeight: FontWeight.w600,
+                        color: amountColor,
+                        letterSpacing: -1.2,
+                        height: 1.0,
+                      ),
+                      decoration: InputDecoration(
+                        isDense: true,
+                        border: InputBorder.none,
+                        enabledBorder: InputBorder.none,
+                        focusedBorder: InputBorder.none,
+                        contentPadding: EdgeInsets.zero,
+                        hintText: '0',
+                        hintStyle: GoogleFonts.spaceGrotesk(
+                          fontSize: 44,
+                          fontWeight: FontWeight.w600,
+                          color: secondary.withOpacity(0.4),
+                          letterSpacing: -1.2,
+                          height: 1.0,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: AppTheme.space12),
+              Container(height: 2, color: amountColor),
+
+              const SizedBox(height: AppTheme.space32),
+
+              // Field rows — hairline-divided
+              _buildFieldRow(
+                label: 'KATEGORI',
+                child: _buildCategoryDropdown(),
+              ),
+              _buildFieldRow(
+                label: 'TANGGAL',
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () async {
+                    final picked = await showDatePicker(
+                      context: context,
+                      initialDate: _date,
+                      firstDate: DateTime(2000),
+                      lastDate: DateTime(2100),
+                    );
+                    if (picked != null) setState(() => _date = picked);
+                  },
+                  child: Row(
                     children: [
-                      Text(
-                        'Rp',
-                        style: GoogleFonts.spaceGrotesk(
-                          fontSize: 28,
-                          fontWeight: FontWeight.w500,
-                          color: secondary,
-                          letterSpacing: -0.6,
-                        ),
-                      ),
-                      const SizedBox(width: AppTheme.space12),
                       Expanded(
-                        child: TextField(
-                          controller: _amount,
-                          keyboardType: const TextInputType.numberWithOptions(
-                            decimal: true,
-                          ),
-                          autofocus: true,
+                        child: Text(
+                          DateFormat('dd MMMM yyyy', 'id').format(_date),
                           style: GoogleFonts.spaceGrotesk(
-                            fontSize: 44,
-                            fontWeight: FontWeight.w600,
-                            color: amountColor,
-                            letterSpacing: -1.2,
-                            height: 1.0,
-                          ),
-                          decoration: InputDecoration(
-                            isDense: true,
-                            border: InputBorder.none,
-                            enabledBorder: InputBorder.none,
-                            focusedBorder: InputBorder.none,
-                            contentPadding: EdgeInsets.zero,
-                            hintText: '0',
-                            hintStyle: GoogleFonts.spaceGrotesk(
-                              fontSize: 44,
-                              fontWeight: FontWeight.w600,
-                              color: secondary.withOpacity(0.4),
-                              letterSpacing: -1.2,
-                              height: 1.0,
-                            ),
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500,
+                            color: ink,
                           ),
                         ),
                       ),
+                      Icon(Icons.calendar_today, size: 16, color: secondary),
                     ],
                   ),
-                  const SizedBox(height: AppTheme.space12),
-                  Container(height: 2, color: amountColor),
-
-                  const SizedBox(height: AppTheme.space32),
-
-                  // Field rows — hairline-divided
-                  _buildFieldRow(
-                    label: 'KATEGORI',
-                    child: _buildCategoryDropdown(),
-                  ),
-                  _buildFieldRow(
-                    label: 'TANGGAL',
-                    child: GestureDetector(
-                      behavior: HitTestBehavior.opaque,
-                      onTap: () async {
-                        final picked = await showDatePicker(
-                          context: context,
-                          initialDate: _date,
-                          firstDate: DateTime(2000),
-                          lastDate: DateTime(2100),
-                        );
-                        if (picked != null) setState(() => _date = picked);
-                      },
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              DateFormat('dd MMMM yyyy', 'id').format(_date),
-                              style: GoogleFonts.spaceGrotesk(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w500,
-                                color: ink,
-                              ),
-                            ),
-                          ),
-                          Icon(Icons.calendar_today, size: 16, color: secondary),
-                        ],
-                      ),
-                    ),
-                  ),
-                  _buildFieldRow(
-                    label: 'METODE',
-                    child: _buildAccountDropdown(),
-                  ),
-                  _buildFieldRow(
-                    label: 'KETERANGAN',
-                    child: TextField(
-                      controller: _payee,
-                      style: GoogleFonts.spaceGrotesk(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                        color: ink,
-                      ),
-                      decoration: InputDecoration(
-                        isDense: true,
-                        border: InputBorder.none,
-                        enabledBorder: InputBorder.none,
-                        focusedBorder: InputBorder.none,
-                        contentPadding: EdgeInsets.zero,
-                        hintText: 'Misal: Belanja bulanan',
-                        hintStyle: GoogleFonts.inter(
-                          fontSize: 14,
-                          color: secondary,
-                        ),
-                      ),
-                    ),
-                  ),
-                  _buildFieldRow(
-                    label: 'CATATAN',
-                    isLast: true,
-                    child: TextField(
-                      controller: _notes,
-                      style: GoogleFonts.inter(
-                        fontSize: 14,
-                        color: ink,
-                        height: 1.5,
-                      ),
-                      maxLines: 3,
-                      minLines: 1,
-                      decoration: InputDecoration(
-                        isDense: true,
-                        border: InputBorder.none,
-                        enabledBorder: InputBorder.none,
-                        focusedBorder: InputBorder.none,
-                        contentPadding: EdgeInsets.zero,
-                        hintText: 'Tulis catatan tambahan…',
-                        hintStyle: GoogleFonts.inter(
-                          fontSize: 14,
-                          color: secondary,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
+                ),
               ),
-            ),
-
-            // Bottom CTA
-            Container(
-              decoration: BoxDecoration(
-                color: paper,
-                border: Border(
-                  top: BorderSide(
-                    color: ThemeUtils.isDarkMode(context)
-                        ? AppTheme.darkHairlineColor
-                        : AppTheme.hairlineColor,
-                    width: AppTheme.hairlineWidth,
+              _buildFieldRow(label: 'METODE', child: _buildAccountDropdown()),
+              _buildFieldRow(
+                label: 'KETERANGAN',
+                child: TextField(
+                  controller: _payee,
+                  style: GoogleFonts.spaceGrotesk(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                    color: ink,
+                  ),
+                  decoration: InputDecoration(
+                    isDense: true,
+                    border: InputBorder.none,
+                    enabledBorder: InputBorder.none,
+                    focusedBorder: InputBorder.none,
+                    contentPadding: EdgeInsets.zero,
+                    hintText: 'Misal: Belanja bulanan',
+                    hintStyle: GoogleFonts.inter(
+                      fontSize: 14,
+                      color: secondary,
+                    ),
                   ),
                 ),
               ),
-              padding: EdgeInsets.fromLTRB(
-                AppTheme.pageGutter,
-                AppTheme.space16,
-                AppTheme.pageGutter,
-                MediaQuery.of(context).padding.bottom + AppTheme.space16,
+              _buildFieldRow(
+                label: 'CATATAN',
+                isLast: true,
+                child: TextField(
+                  controller: _notes,
+                  style: GoogleFonts.inter(
+                    fontSize: 14,
+                    color: ink,
+                    height: 1.5,
+                  ),
+                  maxLines: 3,
+                  minLines: 1,
+                  decoration: InputDecoration(
+                    isDense: true,
+                    border: InputBorder.none,
+                    enabledBorder: InputBorder.none,
+                    focusedBorder: InputBorder.none,
+                    contentPadding: EdgeInsets.zero,
+                    hintText: 'Tulis catatan tambahan…',
+                    hintStyle: GoogleFonts.inter(
+                      fontSize: 14,
+                      color: secondary,
+                    ),
+                  ),
+                ),
               ),
-              child: Row(
-                children: [
-                  Expanded(
-                    flex: 1,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Eyebrow('TERBITKAN', color: secondary, size: 10),
-                        const SizedBox(height: AppTheme.space4),
-                        Text(
-                          isExpense ? 'Pengeluaran' : 'Pemasukan',
-                          style: GoogleFonts.spaceGrotesk(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            color: amountColor,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Expanded(
-                    flex: 2,
-                    child: SizedBox(
-                      height: 56,
-                      child: FilledButton(
-                        onPressed: _save,
-                        style: FilledButton.styleFrom(
-                          backgroundColor: ink,
-                        ),
-                        child: const Text('SIMPAN'),
-                      ),
-                    ),
-                  ),
-                ],
+            ],
+          ),
+        ),
+
+        // Bottom CTA
+        Container(
+          decoration: BoxDecoration(
+            color: paper,
+            border: Border(
+              top: BorderSide(
+                color: ThemeUtils.isDarkMode(context)
+                    ? AppTheme.darkHairlineColor
+                    : AppTheme.hairlineColor,
+                width: AppTheme.hairlineWidth,
               ),
             ),
-          ],
+          ),
+          padding: EdgeInsets.fromLTRB(
+            AppTheme.pageGutter,
+            AppTheme.space16,
+            AppTheme.pageGutter,
+            MediaQuery.of(context).padding.bottom + AppTheme.space16,
+          ),
+          child: SizedBox(
+            width: double.infinity,
+            height: 56,
+            child: FilledButton(
+              onPressed: _save,
+              style: FilledButton.styleFrom(backgroundColor: ink),
+              child: const Text('SIMPAN'),
+            ),
+          ),
+        ),
+      ],
     );
 
     if (widget.isModal) {
       return Material(
         color: paper,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(AppTheme.radiusSmall)),
+        borderRadius: const BorderRadius.vertical(
+          top: Radius.circular(AppTheme.radiusSmall),
+        ),
         clipBehavior: Clip.antiAlias,
         child: SafeArea(
           top: false,
@@ -481,6 +440,101 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
     );
   }
 
+  Future<void> _openVoiceFlow() async {
+    final saved = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => const VoiceAddTransactionPage(),
+        fullscreenDialog: true,
+      ),
+    );
+    if (saved == true && mounted) {
+      // If we are inside a modal, close so the parent page can refresh.
+      if (widget.isModal) {
+        Navigator.of(context).pop();
+      } else {
+        await _loadCats();
+      }
+    }
+  }
+
+  Widget _buildVoiceCta(Color ink, Color secondary) {
+    final accent = ThemeUtils.getPrimaryColor(context);
+    final paper = ThemeUtils.getBackgroundColor(context);
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: _openVoiceFlow,
+        borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+        child: Container(
+          padding: const EdgeInsets.all(AppTheme.space16),
+          decoration: BoxDecoration(
+            color: ThemeUtils.getCardColor(context),
+            border: Border.all(
+              color: ThemeUtils.isDarkMode(context)
+                  ? AppTheme.darkHairlineColor
+                  : AppTheme.hairlineColor,
+              width: AppTheme.hairlineWidth,
+            ),
+            borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: accent,
+                  borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+                ),
+                child: Icon(Icons.mic_rounded, color: paper, size: 22),
+              ),
+              const SizedBox(width: AppTheme.space12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        AccentBar(width: 16, height: 2, color: accent),
+                        const SizedBox(width: AppTheme.space8),
+                        Eyebrow(
+                          'SPEECH TO TRANSACTION',
+                          color: accent,
+                          size: 10,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: AppTheme.space4),
+                    Text(
+                      'Catat lewat suara',
+                      style: GoogleFonts.spaceGrotesk(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: ink,
+                        letterSpacing: -0.2,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Bicara saja, TemanKu menyusun draftnya.',
+                      style: GoogleFonts.inter(
+                        fontSize: 12,
+                        color: secondary,
+                        height: 1.4,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: AppTheme.space8),
+              Icon(Icons.arrow_forward, size: 18, color: ink),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildTypeSegment(Color ink, Color secondary, Color amountColor) {
     final accent = ThemeUtils.getPrimaryColor(context);
     final segments = const [
@@ -509,11 +563,15 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
                   }
                 },
                 child: Container(
-                  padding: const EdgeInsets.symmetric(vertical: AppTheme.space12),
+                  padding: const EdgeInsets.symmetric(
+                    vertical: AppTheme.space12,
+                  ),
                   decoration: BoxDecoration(
                     border: Border(
                       bottom: BorderSide(
-                        color: selected ? (selected && _type == s.$1 ? color : accent) : Colors.transparent,
+                        color: selected
+                            ? (selected && _type == s.$1 ? color : accent)
+                            : Colors.transparent,
                         width: 2,
                       ),
                     ),

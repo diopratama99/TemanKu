@@ -42,6 +42,16 @@ class AuthNotifier extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<String?> resetPasswordForEmail(String email) async {
+    return await _auth.resetPasswordForEmail(email);
+  }
+
+  Future<String?> verifyOtpRecovery(String email, String token) async {
+    final res = await _auth.verifyOtpRecovery(email: email, token: token);
+    notifyListeners();
+    return res;
+  }
+
   Future<String?> updatePassword(String newPassword) async {
     return await _auth.updatePassword(newPassword);
   }

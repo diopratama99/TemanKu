@@ -67,18 +67,15 @@ class _DashboardPageState extends State<DashboardPage> {
   // ============================================================
 
   Widget _buildHeader() {
-    final auth = context.watch<AuthNotifier>();
-    final user = auth.user;
-    final name = (user?['name'] as String?)?.split(' ').first ?? 'Tamu';
-    final today = DateFormat('dd MMM yyyy', 'id').format(DateTime.now());
-    final edition = DateFormat('MMMM yyyy', 'id').format(DateTime.now()).toUpperCase();
+    final edition = DateFormat(
+      'MMMM yyyy',
+      'id',
+    ).format(DateTime.now()).toUpperCase();
 
     return EditorialHeader(
       eyebrow: 'EDISI $edition',
-      title: 'Beranda',
+      title: 'Beranda.',
       titleSize: 40,
-      metaEyebrow: 'TERBIT',
-      meta: '$today\n$name',
     );
   }
 
@@ -131,10 +128,7 @@ class _DashboardPageState extends State<DashboardPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const EditorialSectionHeader(
-          eyebrow: 'INDEKS',
-          title: 'Tata aplikasi',
-        ),
+        const EditorialSectionHeader(eyebrow: 'TemanKu', title: 'Daftar Fitur'),
         const Hairline(),
         Padding(
           padding: const EdgeInsets.symmetric(
@@ -148,9 +142,7 @@ class _DashboardPageState extends State<DashboardPage> {
             mainAxisSpacing: 0,
             crossAxisSpacing: 0,
             childAspectRatio: 1.6,
-            children: features
-                .map((item) => _FeatureCell(item: item))
-                .toList(),
+            children: features.map((item) => _FeatureCell(item: item)).toList(),
           ),
         ),
       ],
@@ -186,25 +178,31 @@ class _DashboardPageState extends State<DashboardPage> {
 
     return Container(
       color: paper,
-      child: RefreshIndicator(
-        onRefresh: _load,
-        child: ListView(
-          padding: const EdgeInsets.only(bottom: AppTheme.space64),
-          physics: const AlwaysScrollableScrollPhysics(),
-          children: [
-            _buildHeader(),
-            ModernBalanceCard(
-              balance: _data!['net'] as num,
-              income: _data!['income'] as num,
-              expense: _data!['expense'] as num,
-              onTap: () => Navigator.pushNamed(context, '/accounts'),
+      child: Column(
+        children: [
+          _buildHeader(),
+          Expanded(
+            child: RefreshIndicator(
+              onRefresh: _load,
+              child: ListView(
+                padding: const EdgeInsets.only(bottom: AppTheme.space64),
+                physics: const AlwaysScrollableScrollPhysics(),
+                children: [
+                  ModernBalanceCard(
+                    balance: _data!['net'] as num,
+                    income: _data!['income'] as num,
+                    expense: _data!['expense'] as num,
+                    onTap: () => Navigator.pushNamed(context, '/accounts'),
+                  ),
+                  const Hairline(),
+                  _buildFeatureMenu(),
+                  _buildQuickStats(),
+                  _buildRecentTransactions(),
+                ],
+              ),
             ),
-            const Hairline(),
-            _buildFeatureMenu(),
-            _buildQuickStats(),
-            _buildRecentTransactions(),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -221,7 +219,7 @@ class _DashboardPageState extends State<DashboardPage> {
       children: [
         const EditorialSectionHeader(
           eyebrow: 'RINGKASAN',
-          title: 'Target & anggaran',
+          title: 'Tabungan & Budget',
         ),
         const Hairline(),
         if (goals.isEmpty && budgets.isEmpty)
@@ -306,7 +304,9 @@ class _DashboardPageState extends State<DashboardPage> {
           ...goals.take(2).map((g) {
             final allocated = (g['allocated'] as num? ?? 0).toDouble();
             final target = (g['target_amount'] as num? ?? 0).toDouble();
-            final progress = target > 0 ? (allocated / target).clamp(0.0, 1.0) : 0.0;
+            final progress = target > 0
+                ? (allocated / target).clamp(0.0, 1.0)
+                : 0.0;
             final percent = (progress * 100).toInt();
 
             return Padding(
@@ -351,10 +351,7 @@ class _DashboardPageState extends State<DashboardPage> {
                   const SizedBox(height: AppTheme.space8),
                   Text(
                     '${_money(allocated)} dari ${_money(target)}',
-                    style: GoogleFonts.inter(
-                      fontSize: 12,
-                      color: secondary,
-                    ),
+                    style: GoogleFonts.inter(fontSize: 12, color: secondary),
                   ),
                 ],
               ),
@@ -458,10 +455,7 @@ class _DashboardPageState extends State<DashboardPage> {
                   const SizedBox(height: AppTheme.space8),
                   Text(
                     '${_money(spent)} dari ${_money(limit)}',
-                    style: GoogleFonts.inter(
-                      fontSize: 12,
-                      color: secondary,
-                    ),
+                    style: GoogleFonts.inter(fontSize: 12, color: secondary),
                   ),
                 ],
               ),
@@ -491,7 +485,9 @@ class _DashboardPageState extends State<DashboardPage> {
           ),
         ),
         const Hairline(),
-        ...recent.take(5).map((t) => _buildEditorialTransactionRow(t, ink, secondary)),
+        ...recent
+            .take(5)
+            .map((t) => _buildEditorialTransactionRow(t, ink, secondary)),
       ],
     );
   }
@@ -505,8 +501,10 @@ class _DashboardPageState extends State<DashboardPage> {
     final amount = t['amount'] as num;
     final category = t['category'] as String? ?? 'Lainnya';
     final emoji = t['category_emoji'] as String? ?? '•';
-    final date = DateFormat('dd MMM', 'id')
-        .format(DateFormat('yyyy-MM-dd').parse(t['date'] as String));
+    final date = DateFormat(
+      'dd MMM',
+      'id',
+    ).format(DateFormat('yyyy-MM-dd').parse(t['date'] as String));
     final amountColor = isIncome
         ? ThemeUtils.getIncomeColor(context)
         : ThemeUtils.getExpenseColor(context);
@@ -609,7 +607,10 @@ class _FeatureCell extends StatelessWidget {
           decoration: BoxDecoration(
             border: Border(
               right: BorderSide(color: hairline, width: AppTheme.hairlineWidth),
-              bottom: BorderSide(color: hairline, width: AppTheme.hairlineWidth),
+              bottom: BorderSide(
+                color: hairline,
+                width: AppTheme.hairlineWidth,
+              ),
             ),
           ),
           padding: const EdgeInsets.all(AppTheme.space12),
