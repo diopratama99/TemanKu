@@ -59,8 +59,26 @@ class TemanKuVoiceWidgetProvider : AppWidgetProvider() {
     ) {
       val views = RemoteViews(context.packageName, R.layout.temanku_voice_widget)
       val pendingIntent = launchPendingIntent(context)
+      
+      val cameraIntent = Intent(context, MainActivity::class.java).apply {
+        action = MainActivity.ACTION_OPEN_CAMERA_TRANSACTION
+        putExtra(MainActivity.EXTRA_OPEN_CAMERA_TRANSACTION, true)
+        flags =
+          Intent.FLAG_ACTIVITY_NEW_TASK or
+            Intent.FLAG_ACTIVITY_CLEAR_TOP or
+            Intent.FLAG_ACTIVITY_SINGLE_TOP
+      }
+      val cameraPendingIntent = PendingIntent.getActivity(
+        context,
+        4002,
+        cameraIntent,
+        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+      )
+
+      // Title/Root default ke voice seperti sebelumnya atau biarkan membuka app biasa
       views.setOnClickPendingIntent(R.id.widget_root, pendingIntent)
       views.setOnClickPendingIntent(R.id.widget_mic, pendingIntent)
+      views.setOnClickPendingIntent(R.id.widget_camera, cameraPendingIntent)
       appWidgetManager.updateAppWidget(appWidgetId, views)
     }
 

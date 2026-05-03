@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'package:provider/provider.dart';
+
+import '../services/notification_listener_service.dart';
 import '../widgets/add_action_menu.dart';
 import '../widgets/main_navigation_scaffold.dart';
 import 'add_transaction_page.dart';
 import 'budgets_page.dart';
 import 'dashboard_page.dart';
+import 'notification_review_page.dart';
 import 'profile_page.dart';
 import 'receipt_ocr_page.dart';
 import 'statistics_page.dart';
@@ -26,6 +30,29 @@ class _HomePageState extends State<HomePage> {
 
   // Each element is a generation counter; incrementing forces the page to rebuild
   final List<int> _pageKeys = [0, 0, 0, 0, 0];
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkPendingReviews();
+    });
+  }
+
+  Future<void> _checkPendingReviews() async {
+    final service = context.read<NotificationListenerService>();
+    await service.loadPendingReviews();
+    if (service.pendingReviews.isNotEmpty && mounted) {
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => const NotificationReviewPage(),
+          fullscreenDialog: true,
+        ),
+      );
+      // Refresh current page to reflect newly added data
+      if (mounted) setState(() => _pageKeys[_currentIndex]++);
+    }
+  }
 
   /// Anchor for the radial add-action menu — attached to the centre TULIS
   /// item in the bottom nav.

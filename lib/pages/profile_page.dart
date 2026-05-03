@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
@@ -5,6 +7,7 @@ import '../state/auth_notifier.dart';
 import '../theme/app_theme.dart';
 import '../utils/theme_utils.dart';
 import '../widgets/editorial.dart';
+import 'notification_settings_page.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -148,7 +151,28 @@ class _ProfilePageState extends State<ProfilePage> {
             const SizedBox(height: AppTheme.space24),
             const Hairline(),
 
-            // Menu rows
+            // Notification settings (Android only)
+            if (Platform.isAndroid)
+              _ProfileActionRow(
+                eyebrow: 'OTOMATIS',
+                title: 'Baca Notifikasi',
+                caption: 'Auto catat transaksi dari notifikasi',
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const NotificationSettingsPage(),
+                    ),
+                  );
+                },
+              ),
+            _ProfileActionRow(
+              eyebrow: 'BACKUP',
+              title: 'Cadangan & pemulihan',
+              caption: 'Cadangkan atau pulihkan datamu',
+              onTap: () {
+                Navigator.of(context).pushNamed('/import');
+              },
+            ),
             _ProfileActionRow(
               eyebrow: 'PRIVASI',
               title: 'Data & Privasi',

@@ -178,7 +178,7 @@ class EditorialHeader extends StatelessWidget {
     ),
     this.trailing,
     this.showHairline = true,
-    this.showMasthead = true,
+    this.showMasthead = false,
     this.showBackButton = false,
     this.onBack,
     super.key,
@@ -286,12 +286,16 @@ class EditorialSectionHeader extends StatelessWidget {
   final EdgeInsetsGeometry padding;
   final bool topHairline;
 
+  /// Warna kustom untuk teks eyebrow. Jika null, menggunakan textSecondary default.
+  final Color? eyebrowColor;
+
   const EditorialSectionHeader({
     required this.eyebrow,
     required this.title,
     this.trailing,
     this.padding = const EdgeInsets.symmetric(horizontal: AppTheme.pageGutter),
     this.topHairline = true,
+    this.eyebrowColor,
     super.key,
   });
 
@@ -315,7 +319,7 @@ class EditorialSectionHeader extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Eyebrow(eyebrow),
+                    Eyebrow(eyebrow, color: eyebrowColor),
                     const SizedBox(height: AppTheme.space8),
                     Text(
                       title,

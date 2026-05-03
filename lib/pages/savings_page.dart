@@ -279,6 +279,9 @@ class _SavingsPageState extends State<SavingsPage> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
+            style: TextButton.styleFrom(
+              foregroundColor: AppTheme.accentGreen,
+            ),
             child: const Text('Batal'),
           ),
           FilledButton(
@@ -308,7 +311,7 @@ class _SavingsPageState extends State<SavingsPage> {
               await _load();
             },
             style: FilledButton.styleFrom(
-              backgroundColor: AppTheme.primaryColor,
+              backgroundColor: AppTheme.accentGreen,
             ),
             child: const Text('Simpan'),
           ),
@@ -520,6 +523,9 @@ class _SavingsPageState extends State<SavingsPage> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
+            style: TextButton.styleFrom(
+              foregroundColor: AppTheme.accentGreen,
+            ),
             child: const Text('Batal'),
           ),
           FilledButton(
@@ -546,7 +552,7 @@ class _SavingsPageState extends State<SavingsPage> {
               await _load();
             },
             style: FilledButton.styleFrom(
-              backgroundColor: AppTheme.primaryColor,
+              backgroundColor: AppTheme.accentGreen,
             ),
             child: const Text('Simpan'),
           ),
@@ -592,6 +598,9 @@ class _SavingsPageState extends State<SavingsPage> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
+            style: TextButton.styleFrom(
+              foregroundColor: AppTheme.accentGreen,
+            ),
             child: const Text('Batal'),
           ),
           FilledButton(
@@ -618,7 +627,7 @@ class _SavingsPageState extends State<SavingsPage> {
               await _load();
             },
             style: FilledButton.styleFrom(
-              backgroundColor: AppTheme.primaryColor,
+              backgroundColor: AppTheme.accentGreen,
             ),
             child: const Text('Simpan'),
           ),
@@ -636,10 +645,16 @@ class _SavingsPageState extends State<SavingsPage> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
+            style: TextButton.styleFrom(
+              foregroundColor: AppTheme.accentGreen,
+            ),
             child: const Text('Batal'),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
+            style: FilledButton.styleFrom(
+              backgroundColor: AppTheme.accentGreen,
+            ),
             child: const Text('Arsipkan'),
           ),
         ],
@@ -676,6 +691,9 @@ class _SavingsPageState extends State<SavingsPage> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
+            style: TextButton.styleFrom(
+              foregroundColor: AppTheme.accentGreen,
+            ),
             child: const Text('Batal'),
           ),
           FilledButton(

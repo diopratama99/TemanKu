@@ -18,16 +18,27 @@
         android:layout_weight="1"
         android:ellipsize="end"
         android:maxLines="2"
-        android:text="Tekan untuk bicara&#10;dan menambah transaksi"
+        android:text="Tambah Transaksi Kamu"
         android:textColor="#1F1A17"
         android:textSize="15sp"
         android:textStyle="bold" />
 
     <ImageView
-        android:id="@+id/widget_mic"
+        android:id="@+id/widget_camera"
         android:layout_width="48dp"
         android:layout_height="48dp"
         android:layout_marginStart="12dp"
+        android:background="@android:color/transparent"
+        android:contentDescription="Camera transaction"
+        android:padding="10dp"
+        android:src="@android:drawable/ic_menu_camera"
+        android:tint="#1F1A17" />
+
+    <ImageView
+        android:id="@+id/widget_mic"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:layout_marginStart="8dp"
         android:background="@android:color/transparent"
         android:contentDescription="Voice transaction"
         android:padding="8dp"

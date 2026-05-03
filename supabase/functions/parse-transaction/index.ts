@@ -101,31 +101,48 @@ PEMASUKAN (income):
 ${income || "  (kosong)"}
 
 AKUN YANG DIIZINKAN: Tunai, Transfer, E-Wallet
-- "cash", "tunai", "uang tunai" -> "Tunai"
-- "bca", "bri", "mandiri", "bank", "transfer", "rekening", "atm" -> "Transfer"
-- "gopay", "ovo", "dana", "shopeepay", "linkaja", "e-wallet", "ewallet" -> "E-Wallet"
-- Jika tidak disebut, default "Tunai" untuk pengeluaran kecil.
+
+ATURAN AKUN (WAJIB DIIKUTI — jangan abaikan kata kunci akun!):
+1. Jika user menyebut salah satu kata kunci di bawah, WAJIB gunakan akun yang sesuai:
+   - "cash", "tunai", "uang tunai", "uang cash" -> "Tunai"
+   - "bca", "bri", "mandiri", "bni", "bank", "transfer", "rekening", "atm", "m-banking", "mobile banking" -> "Transfer"
+   - "gopay", "ovo", "dana", "shopeepay", "linkaja", "e-wallet", "ewallet", "qris" -> "E-Wallet"
+2. Perhatikan konteks: "pakai dana", "via dana", "bayar pake dana", "lewat dana" = E-Wallet (DANA adalah aplikasi e-wallet).
+   Tapi "dana darurat", "dana tabungan" = bukan nama akun, abaikan.
+3. "via transfer", "lewat transfer", "pakai transfer", "bayar transfer" = Transfer (bukan Tunai!).
+4. HANYA jika user TIDAK menyebut metode pembayaran sama sekali, default ke "Tunai".
 
 PARSING JUMLAH:
 - "20rb" / "20 ribu" / "20k" -> 20000
 - "1jt" / "1 juta" -> 1000000
 - "150rb" -> 150000
+- "6 juta" / "6jt" -> 6000000
 - Hilangkan titik/koma format ribuan: "20.000" -> 20000
 
-JENIS TRANSAKSI:
-- Kata kunci pengeluaran: beli, bayar, jajan, belanja, makan, minum, top up, isi, ngopi, bensin, parkir, transfer keluar
-- Kata kunci pemasukan: gaji, dapat, terima, transfer masuk, untung, hadiah, refund, jual
+JENIS TRANSAKSI (PENTING — baca baik-baik!):
+- PEMASUKAN (type="income"): gaji, gajian, dapat gaji, terima gaji, bonus, THR, dapat uang, terima uang, transfer masuk, untung, laba, hadiah, refund, cashback, jual, hasil jualan, dividen, komisi, honor, honorarium, freelance
+- PENGELUARAN (type="expense"): beli, bayar, jajan, belanja, makan, minum, top up, isi, ngopi, bensin, parkir, transfer keluar, kirim uang, sewa, cicilan, tagihan
+
+ATURAN TYPE (WAJIB DIIKUTI):
+- Jika ucapan mengandung kata kunci PEMASUKAN di atas, type HARUS "income". Jangan pernah set "expense" untuk gaji/bonus/refund/dll.
+- "baru dapat gaji" / "gaji masuk" / "terima gaji" / "gajian bulan X" = SELALU income.
+- "dapat uang dari X" / "terima transfer dari X" = income.
+- Hanya set "expense" jika ucapan jelas tentang pengeluaran (beli, bayar, dsb).
+- Jika ambigu, lihat konteksnya: jumlah besar + "gaji"/"bonus" = income.
 
 ATURAN JSON OUTPUT:
 1. category_id WAJIB dari list di atas. Jika tidak ada yang cocok, pilih kategori paling general (misal "Lainnya").
 2. category_name HARUS sama persis dengan name di list.
 3. amount HARUS angka rupiah utuh (bukan string, tanpa pemisah).
 4. date default ke ${today} kecuali user sebut tanggal lain.
+   - "bulan april" / "april" tanpa tanggal spesifik -> tanggal 1 bulan tersebut tahun ini.
+   - "kemarin" -> ${today} minus 1 hari.
+   - "minggu lalu" -> ${today} minus 7 hari.
 
 5. source_or_payee = KETERANGAN UTAMA transaksi. Isi field ini dengan:
    - Nama item / barang yang dibeli (contoh: "batagor", "bakso", "kopi susu", "bensin pertamax", "tiket bioskop").
    - ATAU nama tempat / pihak (contoh: "Warung Bu Ani", "Indomaret", "Gojek", "Andi") jika user menyebutnya.
-   - ATAU sumber pemasukan (contoh: "Gaji November", "Bonus", "Refund Tokopedia").
+   - ATAU sumber pemasukan (contoh: "Gaji November", "Gaji April", "Bonus", "Refund Tokopedia").
    - Kalau user menyebut keduanya (item + tempat), gabungkan singkat: "batagor di Warung Bu Ani".
    - Kosong "" hanya jika benar-benar tidak ada petunjuk.
 
@@ -143,23 +160,31 @@ ATURAN JSON OUTPUT:
 
 CONTOH SATU TRANSAKSI:
 - "Beli batagor 20rb pakai cash"
-  -> source_or_payee="batagor", notes=""
+  -> type="expense", account="Tunai", source_or_payee="batagor", notes=""
 - "Bayar bensin 50rb di pertamina transfer bca"
-  -> source_or_payee="bensin di pertamina", notes=""
+  -> type="expense", account="Transfer", source_or_payee="bensin di pertamina", notes=""
+- "Bayar makan 80rb via dana"
+  -> type="expense", account="E-Wallet", source_or_payee="makan", notes=""
+- "Bayar parkir pakai transfer"
+  -> type="expense", account="Transfer", source_or_payee="parkir", notes=""
 - "Makan siang 100rb tapi nanti di-split sama Andi"
-  -> source_or_payee="makan siang", notes="split bill sama Andi"
+  -> type="expense", source_or_payee="makan siang", notes="split bill sama Andi"
 - "Beli kopi 30rb pakai gopay, utang dulu ke Budi"
-  -> source_or_payee="kopi", notes="utang dulu ke Budi"
+  -> type="expense", account="E-Wallet", source_or_payee="kopi", notes="utang dulu ke Budi"
 - "Dapat gaji 5jt masuk rekening"
-  -> source_or_payee="gaji", notes=""
+  -> type="income", account="Transfer", source_or_payee="gaji", notes=""
+- "Baru dapat gaji bulan april 6 juta"
+  -> type="income", account="Transfer", source_or_payee="Gaji April", notes=""
+- "Terima bonus 2jt via transfer"
+  -> type="income", account="Transfer", source_or_payee="bonus", notes=""
 
 CONTOH MULTI TRANSAKSI:
 - "Beli batagor 20rb cash terus bayar parkir 5rb"
-  -> 2 transaksi: [batagor 20000 Tunai, parkir 5000 Tunai]
+  -> 2 transaksi: [batagor 20000 Tunai expense, parkir 5000 Tunai expense]
 - "Top up gopay 100rb sama beli pulsa 50rb"
-  -> 2 transaksi: [top up gopay 100000 E-Wallet, pulsa 50000 ...]
+  -> 2 transaksi: [top up gopay 100000 E-Wallet expense, pulsa 50000 ...]
 - "Bayar listrik 300rb, internet 400rb, sama air 100rb pakai transfer"
-  -> 3 transaksi (semua transfer)
+  -> 3 transaksi (semua Transfer expense)
 
 FORMAT OUTPUT (WAJIB):
 Balas HANYA dengan satu objek JSON valid berbentuk:

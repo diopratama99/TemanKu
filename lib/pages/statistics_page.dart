@@ -83,13 +83,13 @@ class _StatisticsPageState extends State<StatisticsPage>
     // Load transaction amounts for descriptive statistics
     final transactions = await _loadTransactionAmounts(db);
 
-    // Load category data for donut chart
     final categoryData = await _loadCategoryData(db);
 
     // Load transaction counts
     final transactionCounts = await _loadTransactionCounts(db);
     data['transaction_counts'] = transactionCounts;
 
+    if (!mounted) return;
     setState(() {
       _data = data;
       _expenseStats = DescriptiveStatistics(transactions['expense'] ?? []);

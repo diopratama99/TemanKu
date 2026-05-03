@@ -48,11 +48,12 @@ class _DashboardPageState extends State<DashboardPage> {
     final user = auth.user;
 
     if (user == null) {
-      setState(() => _loading = false);
+      if (mounted) setState(() => _loading = false);
       return;
     }
 
     final data = await db.dashboardData(_iso(_start), _iso(_end));
+    if (!mounted) return;
     setState(() {
       _data = data;
       _loading = false;
@@ -71,11 +72,154 @@ class _DashboardPageState extends State<DashboardPage> {
       'MMMM yyyy',
       'id',
     ).format(DateTime.now()).toUpperCase();
+    final secondary = ThemeUtils.getTextSecondary(context);
 
     return EditorialHeader(
       eyebrow: 'EDISI $edition',
       title: 'Beranda.',
       titleSize: 40,
+      trailing: Transform.translate(
+        offset: const Offset(0, -16),
+        child: IconButton(
+          onPressed: _showInfoDialog,
+          icon: Icon(
+            Icons.info_outline,
+            size: 20,
+            color: secondary,
+          ),
+          tooltip: 'Tentang angka di halaman ini',
+          splashRadius: 20,
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints(
+            minWidth: 36,
+            minHeight: 36,
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Editorial info dialog — explains the difference between the
+  /// cumulative "Sisa Saldo" and the per-month figures (PEMASUKAN,
+  /// PENGELUARAN, budgets, latest transactions). Surfaced via the info
+  /// icon in the top-right of the dashboard header so users don't
+  /// mistake this month's net for their total wallet.
+  Future<void> _showInfoDialog() async {
+    final ink = ThemeUtils.getTextPrimary(context);
+    final secondary = ThemeUtils.getTextSecondary(context);
+    // `secondary` is used only for the close-icon tint below.
+    final paper = ThemeUtils.getBackgroundColor(context);
+    final green = ThemeUtils.getAccentGreen(context);
+    final hairline = ThemeUtils.isDarkMode(context)
+        ? AppTheme.darkHairlineColor
+        : AppTheme.hairlineColor;
+
+    await showDialog<void>(
+      context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.45),
+      builder: (ctx) => Dialog(
+        backgroundColor: paper,
+        surfaceTintColor: paper,
+        elevation: 0,
+        insetPadding: const EdgeInsets.symmetric(
+          horizontal: AppTheme.pageGutter,
+          vertical: AppTheme.space32,
+        ),
+        shape: RoundedRectangleBorder(
+          side: BorderSide(color: hairline, width: AppTheme.hairlineWidth),
+          borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(
+            AppTheme.pageGutter,
+            AppTheme.space24,
+            AppTheme.pageGutter,
+            AppTheme.space20,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header — eyebrow + title + close
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            AccentBar(
+                              width: 16,
+                              height: 2,
+                              color: green,
+                            ),
+                            const SizedBox(width: AppTheme.space8),
+                            const Eyebrow('INFORMASI'),
+                          ],
+                        ),
+                        const SizedBox(height: AppTheme.space8),
+                        Text(
+                          'Tentang angka di halaman ini',
+                          style: GoogleFonts.spaceGrotesk(
+                            fontSize: 22,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: -0.4,
+                            height: 1.2,
+                            color: ink,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.of(ctx).pop(),
+                    icon: Icon(Icons.close, size: 20, color: secondary),
+                    splashRadius: 20,
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(
+                      minWidth: 32,
+                      minHeight: 32,
+                    ),
+                    tooltip: 'Tutup',
+                  ),
+                ],
+              ),
+              const SizedBox(height: AppTheme.space20),
+              const Hairline(),
+              const SizedBox(height: AppTheme.space20),
+
+              // Body — three info rows
+              _InfoRow(
+                ink: ink,
+                accent: green,
+                eyebrow: 'SISA SALDO',
+                body:
+                    'Akumulasi dari net transaksi seluruh bulan sebelumnya '
+                    'ditambah net bulan ini. Angka ini mencerminkan total '
+                    'dana kamu, bukan cuma selisih bulan ini.',
+              ),
+              const SizedBox(height: AppTheme.space16),
+              _InfoRow(
+                ink: ink,
+                accent: green,
+                eyebrow: 'PEMASUKAN & PENGELUARAN',
+                body:
+                    'Hanya mencakup transaksi yang terjadi pada bulan ini.',
+              ),
+              const SizedBox(height: AppTheme.space24),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(),
+                  child: const Text('MENGERTI'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
@@ -118,17 +262,21 @@ class _DashboardPageState extends State<DashboardPage> {
       ),
       _FeatureItem(
         eyebrow: '06',
-        label: 'Impor / Ekspor',
-        caption: 'CSV & cadangan',
-        icon: Icons.swap_vert,
-        onTap: () => Navigator.pushNamed(context, '/import'),
+        label: 'Hutang / Piutang',
+        caption: 'Catat hutang & tagihan',
+        icon: Icons.handshake_outlined,
+        onTap: () => Navigator.pushNamed(context, '/debts'),
       ),
     ];
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const EditorialSectionHeader(eyebrow: 'TemanKu', title: 'Daftar Fitur'),
+        const EditorialSectionHeader(
+          eyebrow: 'TemanKu',
+          title: 'Daftar Fitur',
+          eyebrowColor: AppTheme.accentGreen,
+        ),
         const Hairline(),
         Padding(
           padding: const EdgeInsets.symmetric(
@@ -189,7 +337,11 @@ class _DashboardPageState extends State<DashboardPage> {
                 physics: const AlwaysScrollableScrollPhysics(),
                 children: [
                   ModernBalanceCard(
-                    balance: _data!['net'] as num,
+                    // Use the cumulative `balance` (carry-over + current
+                    // month delta) so Sisa Saldo reflects the full wallet,
+                    // not just this month's net. Fallback to `net` for
+                    // cached payloads that predate the carry-over field.
+                    balance: (_data!['balance'] ?? _data!['net']) as num,
                     income: _data!['income'] as num,
                     expense: _data!['expense'] as num,
                     onTap: () => Navigator.pushNamed(context, '/accounts'),
@@ -652,6 +804,49 @@ class _FeatureCell extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// One row in the dashboard info dialog. Eyebrow (uppercase tracked) on
+/// top with a short 14px accent bar, body paragraph below in muted ink.
+/// Kept private to the dashboard since the styling is tailored to the
+/// info-dialog layout.
+class _InfoRow extends StatelessWidget {
+  final Color ink;
+  final Color accent;
+  final String eyebrow;
+  final String body;
+
+  const _InfoRow({
+    required this.ink,
+    required this.accent,
+    required this.eyebrow,
+    required this.body,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            AccentBar(width: 14, height: 2, color: accent),
+            const SizedBox(width: AppTheme.space8),
+            Eyebrow(eyebrow, size: 10),
+          ],
+        ),
+        const SizedBox(height: AppTheme.space8),
+        Text(
+          body,
+          style: GoogleFonts.inter(
+            fontSize: 13,
+            height: 1.5,
+            color: ink,
+          ),
+        ),
+      ],
     );
   }
 }

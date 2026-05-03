@@ -80,8 +80,6 @@ class _BudgetsPageState extends State<BudgetsPage> {
                             title: 'Belum ada budget',
                             description:
                                 'Atur budget pengeluaranmu untuk kontrol keuangan yang lebih baik.',
-                            actionLabel: 'Tambah Budget',
-                            onAction: _showAddDialog,
                           )
                         : ListView.builder(
                             padding: EdgeInsets.zero,
@@ -116,7 +114,7 @@ class _BudgetsPageState extends State<BudgetsPage> {
                             children: [
                               const Spacer(),
                               Text(
-                                'Budget kategori',
+                                'Tambah Budgeting',
                                 style: GoogleFonts.spaceGrotesk(
                                   fontSize: 16,
                                   fontWeight: FontWeight.w600,
@@ -352,6 +350,9 @@ class _BudgetsPageState extends State<BudgetsPage> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
+              style: TextButton.styleFrom(
+                foregroundColor: AppTheme.accentGreen,
+              ),
               child: const Text('Batal'),
             ),
             FilledButton(
@@ -394,7 +395,7 @@ class _BudgetsPageState extends State<BudgetsPage> {
                 }
               },
               style: FilledButton.styleFrom(
-                backgroundColor: AppTheme.primaryColor,
+                backgroundColor: AppTheme.accentGreen,
               ),
               child: const Text('Simpan'),
             ),
@@ -440,6 +441,7 @@ class _BudgetsPageState extends State<BudgetsPage> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
+            style: TextButton.styleFrom(foregroundColor: AppTheme.accentGreen),
             child: const Text('Batal'),
           ),
           FilledButton(
@@ -477,7 +479,7 @@ class _BudgetsPageState extends State<BudgetsPage> {
               }
             },
             style: FilledButton.styleFrom(
-              backgroundColor: AppTheme.primaryColor,
+              backgroundColor: AppTheme.accentGreen,
             ),
             child: const Text('Simpan'),
           ),

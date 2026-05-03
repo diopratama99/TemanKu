@@ -437,7 +437,6 @@ class _EditTransactionPageModernState extends State<EditTransactionPageModern> {
       });
     }
   }
-
   Future<void> _save() async {
     final amount = num.tryParse(
       _amount.text.replaceAll('.', '').replaceAll(',', '.'),
@@ -483,6 +482,42 @@ class _EditTransactionPageModernState extends State<EditTransactionPageModern> {
     } catch (e) {
       if (!mounted) return;
       showErrorSnackbar(context, 'Gagal menyimpan transaksi: $e');
+    }
+  }
+
+  Future<void> _delete() async {
+    final existing = widget.existing;
+    if (existing == null) return;
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Hapus Transaksi'),
+        content: const Text('Apakah Anda yakin ingin menghapus transaksi ini?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Batal'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Hapus'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    try {
+      await context.read<AppDatabase>().deleteTransaction(existing['id'] as int);
+      if (!mounted) return;
+      showSuccessSnackbar(context, 'Transaksi berhasil dihapus');
+      Navigator.pop(context);
+    } catch (e) {
+      if (!mounted) return;
+      showErrorSnackbar(context, 'Gagal menghapus transaksi: $e');
     }
   }
 
@@ -693,12 +728,30 @@ class _EditTransactionPageModernState extends State<EditTransactionPageModern> {
                 MediaQuery.of(context).padding.bottom + AppTheme.space16,
               ),
               child: SizedBox(
-                width: double.infinity,
                 height: 56,
-                child: FilledButton(
-                  onPressed: _save,
-                  style: FilledButton.styleFrom(backgroundColor: ink),
-                  child: const Text('SIMPAN'),
+                child: Row(
+                  children: [
+                    if (widget.existing != null) ...[
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: _delete,
+                          style: OutlinedButton.styleFrom(
+                            side: const BorderSide(color: Colors.red, width: 1.2),
+                            foregroundColor: Colors.red,
+                          ),
+                          child: const Text('HAPUS'),
+                        ),
+                      ),
+                      const SizedBox(width: AppTheme.space12),
+                    ],
+                    Expanded(
+                      child: FilledButton(
+                        onPressed: _save,
+                        style: FilledButton.styleFrom(backgroundColor: ink),
+                        child: const Text('SIMPAN'),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -881,3 +934,7 @@ class _EditTransactionPageModernState extends State<EditTransactionPageModern> {
     );
   }
 }
+
+
+
+

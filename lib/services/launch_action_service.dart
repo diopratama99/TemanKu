@@ -1,7 +1,12 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
-enum LaunchAction { openVoiceTransaction }
+enum LaunchAction {
+  openVoiceTransaction,
+  openCameraTransaction,
+  openHistoryTransaction,
+  openHistoryTransfer,
+}
 
 class LaunchActionService extends ChangeNotifier {
   static const MethodChannel _channel = MethodChannel('temanku/navigation');
@@ -24,6 +29,12 @@ class LaunchActionService extends ChangeNotifier {
   Future<void> _handleMethodCall(MethodCall call) async {
     if (call.method == 'openVoiceTransaction') {
       _setPendingAction('open_voice_transaction');
+    } else if (call.method == 'openCameraTransaction') {
+      _setPendingAction('open_camera_transaction');
+    } else if (call.method == 'openHistoryTransaction') {
+      _setPendingAction('open_history_transaction');
+    } else if (call.method == 'openHistoryTransfer') {
+      _setPendingAction('open_history_transfer');
     }
   }
 
@@ -39,6 +50,9 @@ class LaunchActionService extends ChangeNotifier {
   void _setPendingAction(String? rawAction) {
     final next = switch (rawAction) {
       'open_voice_transaction' => LaunchAction.openVoiceTransaction,
+      'open_camera_transaction' => LaunchAction.openCameraTransaction,
+      'open_history_transaction' => LaunchAction.openHistoryTransaction,
+      'open_history_transfer' => LaunchAction.openHistoryTransfer,
       _ => null,
     };
     if (next == _pendingAction) return;

@@ -132,9 +132,6 @@ class _WelcomePageState extends State<WelcomePage> {
       body: SafeArea(
         child: Column(
           children: [
-            // Masthead green rule
-            Container(height: 1, color: ThemeUtils.getAccentGreen(context)),
-
             // Top bar: counter + skip
             Padding(
               padding: const EdgeInsets.fromLTRB(

@@ -325,12 +325,44 @@ class AppDatabase {
     String startIso,
     String endIso,
   ) async {
-    // Income/expense totals
-    final allTrx = await client
+    // Two parallel queries:
+    //   1. Current month's transactions (full columns for aggregations).
+    //   2. All prior-month transactions (type+amount only) to compute the
+    //      carry-over balance so "Sisa Saldo" on the dashboard reflects
+    //      the user's cumulative wallet, not just this month's net. Fixes
+    //      the bug where a user starting a new month sees their balance
+    //      reset to near-zero and panics about missing money.
+    final currentMonthFuture = client
         .from('transactions')
-        .select('type, amount, category_id, source_or_payee, date, id, account, notes')
+        .select(
+          'type, amount, category_id, source_or_payee, date, id, account, notes',
+        )
         .gte('date', startIso)
         .lte('date', endIso);
+
+    final priorMonthsFuture = client
+        .from('transactions')
+        .select('type, amount')
+        .lt('date', startIso);
+
+    final results = await Future.wait([
+      currentMonthFuture,
+      priorMonthsFuture,
+    ]);
+    final allTrx = results[0];
+    final priorTrx = results[1];
+
+    // Carry-over (net of everything strictly before `startIso`).
+    double priorIncome = 0, priorExpense = 0;
+    for (final t in priorTrx) {
+      final amount = (t['amount'] as num).toDouble();
+      if (t['type'] == 'income') {
+        priorIncome += amount;
+      } else {
+        priorExpense += amount;
+      }
+    }
+    final carryover = priorIncome - priorExpense;
 
     double income = 0, expense = 0;
     final spendByCat = <int, double>{};
@@ -403,7 +435,17 @@ class AppDatabase {
     return {
       'income': income,
       'expense': expense,
+      // `net` = current month's delta only. Kept for the statistics page
+      // which shows "Selisih Bulan Ini".
       'net': income - expense,
+      // `carryover` = net of all transactions strictly before the
+      // selected month. Exposed so the UI can optionally show "saldo
+      // bulan lalu" as a subtitle.
+      'carryover': carryover,
+      // `balance` = cumulative wallet balance (carryover + current
+      // month delta). This is the value the dashboard should display as
+      // "Sisa Saldo" so users don't see their money "reset" each month.
+      'balance': carryover + income - expense,
       'spend_by_cat': spendList,
       'top_payee': topPayee,
       'budgets': budgets,
@@ -436,6 +478,47 @@ class AppDatabase {
     final uid = currentUserId;
     if (uid == null) return;
     await client.from('profiles').upsert({'id': uid, ...data});
+  }
+
+  // ─── DEBTS ───────────────────────────────────────────────────────────────
+
+  Future<List<Map<String, dynamic>>> getDebts({String? status}) async {
+    var query = client.from('debts').select('*, debt_payments(amount)');
+    if (status != null) {
+      query = query.eq('status', status);
+    }
+    final List<dynamic> data = await query.order('created_at', ascending: false);
+    
+    return data.map<Map<String, dynamic>>((row) {
+      final r = Map<String, dynamic>.from(row);
+      final payments = r['debt_payments'] as List<dynamic>? ?? [];
+      double totalPaid = 0;
+      for (final p in payments) {
+        totalPaid += (p['amount'] as num?)?.toDouble() ?? 0;
+      }
+      r['paid_amount'] = totalPaid;
+      return r;
+    }).toList();
+  }
+
+  Future<Map<String, dynamic>> insertDebt(Map<String, dynamic> data) async {
+    final uid = currentUserId;
+    if (uid != null) data['user_id'] = uid;
+    return await client.from('debts').insert(data).select().single();
+  }
+
+  Future<void> updateDebt(int id, Map<String, dynamic> data) async {
+    await client.from('debts').update(data).eq('id', id);
+  }
+
+  Future<void> deleteDebt(int id) async {
+    await client.from('debts').delete().eq('id', id);
+  }
+
+  Future<void> insertDebtPayment(Map<String, dynamic> data) async {
+    final uid = currentUserId;
+    if (uid != null) data['user_id'] = uid;
+    await client.from('debt_payments').insert(data);
   }
 
   // ─── EXPORT HELPER ─────────────────────────────────────────────────────

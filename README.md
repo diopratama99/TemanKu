@@ -31,6 +31,11 @@ TemanKu adalah aplikasi manajemen keuangan pribadi yang membantu Anda melacak pe
   - AI parsing untuk mengenali jumlah, kategori, dan deskripsi
   - Multi-transaction support (bisa mencatat beberapa transaksi sekaligus)
   - Preview dan edit sebelum menyimpan
+- 🔔 **Automated Financial Notifications** - Catat transaksi & mutasi otomatis
+  - Membaca notifikasi dari bank & e-wallet Indonesia (BCA, Mandiri, GoPay, OVO, dll)
+  - AI Edge Function untuk membedakan uang masuk, keluar, dan transfer
+  - Notifikasi lokal interaktif yang langsung membuka riwayat transaksi
+  - *Pending Review Popup* saat aplikasi dibuka untuk verifikasi data
 - 🏠 **Android Widget** - Homescreen widget 3x1 untuk akses cepat
   - Tekan ikon mic untuk langsung ke halaman voice transaction
   - Works dengan cold start dan warm start
@@ -109,7 +114,8 @@ flutter build ios --release
 - **Statistical Analysis**: Custom implementation (Linear Regression, Hypothesis Testing)
 - **Authentication**: Supabase Auth
 - **Voice Processing**: speech_to_text, permission_handler
-- **AI/NLP**: Supabase Edge Functions (Deno + OpenAI) untuk parsing transaksi
+- **AI/NLP**: Supabase Edge Functions (Deno + OpenAI) untuk parsing transaksi & notifikasi
+- **Native Android**: NotificationListenerService, AppWidgetProvider, MethodChannels
 - **File Handling**: file_picker, share_plus, path_provider
 - **Image Handling**: image_picker
 - **Icons**: flutter_launcher_icons
@@ -156,11 +162,14 @@ lib/
 │   ├── trend_analysis_page.dart   # Trend analysis with AI prediction
 │   ├── monthly_comparison_page.dart # Monthly expense comparison
 │   ├── profile_page.dart          # User profile
+│   ├── notification_review_page.dart # UI review untuk transaksi otomatis
+│   ├── notification_settings_page.dart # Pengaturan Auto-Mutasi & Auto-Transaksi
 │   └── import_export_page.dart    # Import/Export data
 ├── services/
 │   ├── auth_service.dart    # Authentication service (Supabase)
 │   ├── voice_transaction_service.dart # Voice parsing & AI service
-│   └── launch_action_service.dart # Widget intent handler
+│   ├── notification_listener_service.dart # Native notification bridge
+│   └── launch_action_service.dart # Widget & Notification intent handler
 ├── state/
 │   ├── auth_notifier.dart   # Authentication state
 │   └── theme_notifier.dart  # Theme (light/dark) state
@@ -180,9 +189,10 @@ lib/
     └── transaction_list_item.dart
 
 android/app/src/main/
-├── AndroidManifest.xml              # Widget receiver registration
+├── AndroidManifest.xml              # Widget & Notification listener registration
 ├── kotlin/com/temanlabs/temanku/
-│   ├── MainActivity.kt             # MethodChannel for widget intents
+│   ├── MainActivity.kt             # MethodChannel for intents & native notifications
+│   ├── TemanKuNotificationListener.kt # Android NotificationListenerService
 │   └── TemanKuVoiceWidgetProvider.kt # AppWidgetProvider implementation
 └── res/
     ├── layout/temanku_voice_widget.xml    # Widget UI layout
@@ -210,9 +220,10 @@ Aplikasi menggunakan SQLite untuk penyimpanan lokal dan Supabase untuk authentic
 
 1. Buat project di [Supabase Dashboard](https://supabase.com/)
 2. Enable Email/Password dan Google OAuth providers
-3. Deploy Edge Function untuk parsing transaksi:
+3. Deploy Edge Functions:
    ```bash
    supabase functions deploy parse-transaction
+   supabase functions deploy parse-notification
    ```
 4. Tambahkan OpenAI API key ke Supabase secrets:
    ```bash

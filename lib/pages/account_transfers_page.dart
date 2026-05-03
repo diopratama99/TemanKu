@@ -189,7 +189,7 @@ class _AccountTransfersPageState extends State<AccountTransfersPage> {
                           children: [
                             const Spacer(),
                             Text(
-                              'Mutasi antar akun',
+                              'Tambah Mutasi Antar Akun',
                               style: GoogleFonts.spaceGrotesk(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w600,

@@ -59,18 +59,20 @@ class AppBottomNavigation extends StatelessWidget {
   /// button sits mostly inside the bar (~70%) with a small overhang on
   /// top so it still reads as a lifted FAB without floating away from
   /// the bar.
-  static const double _liftOverhang = 16;
+  static const double _liftOverhang = 12;
 
-  static const double _addButtonSize = 64;
+  static const double _addButtonSize = 72;
+
+  /// Lebar garis hijau brand di atas hairline bar.
+  static const double _greenRuleWidth = 2.5;
 
   @override
   Widget build(BuildContext context) {
     final isDark = ThemeUtils.isDarkMode(context);
     final paper = ThemeUtils.getBackgroundColor(context);
-    final hairline =
-        isDark ? AppTheme.darkHairlineColor : AppTheme.hairlineColor;
-    final green = ThemeUtils.getAccentGreen(context);
-
+    final hairline = isDark
+        ? AppTheme.darkHairlineColor
+        : AppTheme.hairlineColor;
     return Semantics(
       label: 'Navigasi utama aplikasi',
       child: Container(
@@ -79,13 +81,15 @@ class AppBottomNavigation extends StatelessWidget {
         color: paper,
         child: SafeArea(
           top: false,
-          child: SizedBox(
-            // Total widget height = bar + lift overhang. Children with
-            // `Stack(clipBehavior: Clip.none)` can render outside this
-            // box, so we add a tiny breathing pad above for the shadow.
-            height: barHeight + _liftOverhang + 4,
-            child: Stack(
-              clipBehavior: Clip.none,
+          child: Padding(
+            padding: const EdgeInsets.only(bottom: 12.0),
+            child: SizedBox(
+              // Total widget height = bar + lift overhang. Children with
+              // `Stack(clipBehavior: Clip.none)` can render outside this
+              // box, so we add a tiny breathing pad above for the shadow.
+              height: barHeight + _liftOverhang + 4,
+              child: Stack(
+                clipBehavior: Clip.none,
               children: [
                 // ─── Background bar (4 items + middle gap) ─────────────
                 Positioned(
@@ -96,19 +100,23 @@ class AppBottomNavigation extends StatelessWidget {
                   child: Container(
                     decoration: BoxDecoration(
                       color: paper,
+                      // Garis hijau brand (tebal) + hairline tipis di bawahnya
                       border: Border(
                         top: BorderSide(
-                          color: hairline,
-                          width: AppTheme.hairlineWidth,
+                          color: isDark
+                              ? const Color(
+                                  0xFF4ADE80,
+                                ) // green-400 di dark mode
+                              : const Color(
+                                  0xFF1E8449,
+                                ), // sedikit lebih muda dari Forest green 800
+                          width: _greenRuleWidth,
                         ),
                       ),
                     ),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        // Editorial brand rule — kept as masthead so the
-                        // bar still belongs to the editorial page family.
-                        Container(height: 1, color: green),
                         Expanded(
                           child: Padding(
                             padding: const EdgeInsets.symmetric(
@@ -157,7 +165,7 @@ class AppBottomNavigation extends StatelessWidget {
 
                 // ─── Lifted TAMBAH button ──────────────────────────────
                 Positioned(
-                  top: 0,
+                  top: 0, // sedikit lebih ke bawah
                   left: 0,
                   right: 0,
                   height: _addButtonSize,
@@ -166,13 +174,13 @@ class AppBottomNavigation extends StatelessWidget {
                       key: addAnchorKey,
                       size: _addButtonSize,
                       isSelected: currentIndex == 2,
-                      onTap:
-                          onAddPressed ?? () => onDestinationSelected(2),
+                      onTap: onAddPressed ?? () => onDestinationSelected(2),
                     ),
                   ),
                 ),
               ],
             ),
+          ),
           ),
         ),
       ),
@@ -324,26 +332,17 @@ class _AddButton extends StatelessWidget {
                 // trick that makes the button look like it punches through
                 // the bar in the reference design — the ring blends into
                 // the bar so the FAB reads as floating.
-                border: Border.all(
-                  color: paper,
-                  width: 3,
-                ),
+                border: Border.all(color: paper, width: 3),
                 boxShadow: [
                   BoxShadow(
-                    color: green.withValues(
-                      alpha: isDark ? 0.45 : 0.30,
-                    ),
+                    color: green.withValues(alpha: isDark ? 0.45 : 0.30),
                     blurRadius: 14,
                     offset: const Offset(0, 4),
                   ),
                 ],
               ),
               alignment: Alignment.center,
-              child: Icon(
-                Icons.add_rounded,
-                color: paper,
-                size: 30,
-              ),
+              child: Icon(Icons.add_rounded, color: paper, size: 34),
             ),
           ),
         ),

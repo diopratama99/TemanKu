@@ -343,8 +343,8 @@ class _CategoriesPageState extends State<CategoriesPage> {
                       const Spacer(),
                       Text(
                         isExpense
-                            ? 'Kategori pengeluaran'
-                            : 'Kategori pemasukan',
+                            ? 'Tambah Kategori Pengeluaran'
+                            : 'Tambah Kategori Pemasukan',
                         style: GoogleFonts.spaceGrotesk(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,

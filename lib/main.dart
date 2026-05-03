@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -6,6 +7,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'data/app_database.dart';
 import 'services/auth_service.dart';
 import 'services/launch_action_service.dart';
+import 'services/notification_listener_service.dart';
 import 'state/auth_notifier.dart';
 import 'state/theme_notifier.dart';
 import 'pages/login_page.dart';
@@ -22,6 +24,8 @@ import 'pages/savings_page.dart';
 import 'pages/trend_analysis_page.dart';
 import 'pages/monthly_comparison_page.dart';
 import 'pages/voice_add_transaction_page.dart';
+import 'pages/receipt_ocr_page.dart';
+import 'pages/debts_page.dart';
 import 'theme/app_theme.dart';
 
 void main() async {
@@ -31,13 +35,23 @@ void main() async {
   await AppDatabase().init();
   final launchActionService = LaunchActionService();
   await launchActionService.initialize();
-  runApp(MyApp(launchActionService: launchActionService));
+  final notificationListenerService = NotificationListenerService();
+  notificationListenerService.initialize();
+  runApp(MyApp(
+    launchActionService: launchActionService,
+    notificationListenerService: notificationListenerService,
+  ));
 }
 
 class MyApp extends StatefulWidget {
   final LaunchActionService launchActionService;
+  final NotificationListenerService notificationListenerService;
 
-  const MyApp({super.key, required this.launchActionService});
+  const MyApp({
+    super.key,
+    required this.launchActionService,
+    required this.notificationListenerService,
+  });
 
   @override
   State<MyApp> createState() => _MyAppState();
@@ -68,6 +82,9 @@ class _MyAppState extends State<MyApp> {
           create: (_) => AuthNotifier(_auth),
         ),
         ChangeNotifierProvider<ThemeNotifier>(create: (_) => ThemeNotifier()),
+        ChangeNotifierProvider<NotificationListenerService>.value(
+          value: widget.notificationListenerService,
+        ),
       ],
       child: Consumer<ThemeNotifier>(
         builder: (context, themeNotifier, _) {
@@ -81,8 +98,26 @@ class _MyAppState extends State<MyApp> {
                 : ThemeMode.light,
             debugShowCheckedModeBanner: false,
             builder: (context, child) {
-              return _LaunchActionListener(
-                child: child ?? const SizedBox.shrink(),
+              final isDark = Theme.of(context).brightness == Brightness.dark;
+              final overlayStyle = isDark
+                  ? SystemUiOverlayStyle.light.copyWith(
+                      statusBarColor: Colors.transparent,
+                      statusBarIconBrightness: Brightness.light,
+                      // iOS status text color counterpart.
+                      statusBarBrightness: Brightness.dark,
+                    )
+                  : SystemUiOverlayStyle.dark.copyWith(
+                      statusBarColor: Colors.transparent,
+                      statusBarIconBrightness: Brightness.dark,
+                      // iOS status text color counterpart.
+                      statusBarBrightness: Brightness.light,
+                    );
+
+              return AnnotatedRegion<SystemUiOverlayStyle>(
+                value: overlayStyle,
+                child: _LaunchActionListener(
+                  child: child ?? const SizedBox.shrink(),
+                ),
               );
             },
             routes: {
@@ -96,6 +131,7 @@ class _MyAppState extends State<MyApp> {
               '/transactions': (_) => const TransactionsPage(),
               '/budgets': (_) => const BudgetsPage(),
               '/savings': (_) => const SavingsPage(),
+              '/debts': (_) => const DebtsPage(),
               '/trend_analysis': (_) => const TrendAnalysisPage(),
               '/monthly_comparison': (_) => const MonthlyComparisonPage(),
             },
@@ -157,6 +193,10 @@ class _LaunchActionListenerState extends State<_LaunchActionListener> {
   bool _handling = false;
   LaunchActionService? _service;
 
+  /// Tracks the route pushed by a widget action so we can remove it
+  /// before pushing a different one (prevents stacking).
+  Route<dynamic>? _activeWidgetRoute;
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -202,14 +242,44 @@ class _LaunchActionListenerState extends State<_LaunchActionListener> {
 
     _handling = true;
     try {
+      // Pop any existing widget-launched route before pushing new one.
+      // This prevents stacking multiple voice/camera pages on top of
+      // each other when the user rapidly taps different widget icons.
+      if (_activeWidgetRoute != null) {
+        navigator.removeRoute(_activeWidgetRoute!);
+        _activeWidgetRoute = null;
+      }
+
+      late final Widget? page;
       switch (consumed) {
         case LaunchAction.openVoiceTransaction:
-          await navigator.push(
-            MaterialPageRoute<bool>(
-              builder: (_) => const VoiceAddTransactionPage(),
-              fullscreenDialog: true,
-            ),
-          );
+          page = const VoiceAddTransactionPage();
+        case LaunchAction.openCameraTransaction:
+          page = const ReceiptOcrPage();
+        case LaunchAction.openHistoryTransaction:
+          page = null;
+          context.read<NotificationListenerService>().clearPendingReviews();
+          navigator.popUntil((route) => route.isFirst);
+          navigator.pushNamed('/transactions');
+        case LaunchAction.openHistoryTransfer:
+          page = null;
+          context.read<NotificationListenerService>().clearPendingReviews();
+          navigator.popUntil((route) => route.isFirst);
+          navigator.pushNamed('/accounts');
+      }
+
+      if (page != null) {
+        final route = MaterialPageRoute<bool>(
+          builder: (_) => page!,
+          fullscreenDialog: true,
+        );
+        _activeWidgetRoute = route;
+
+        // Don't await — release _handling immediately so new actions
+        // from the widget can be processed right away.
+        navigator.push(route).then((_) {
+          _activeWidgetRoute = null;
+        });
       }
     } finally {
       _handling = false;
