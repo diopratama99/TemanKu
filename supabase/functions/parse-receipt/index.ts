@@ -217,7 +217,10 @@ Deno.serve(async (req) => {
   }
 
   // 1. Fetch caller's categories using their JWT so RLS scopes by user.
+  // `db: { schema: "temanku" }` routes every .from()/.rpc() call to our
+  // dedicated Postgres schema on the shared self-hosted Supabase.
   const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    db: { schema: "temanku" },
     global: { headers: { Authorization: authHeader } },
     auth: { persistSession: false },
   });

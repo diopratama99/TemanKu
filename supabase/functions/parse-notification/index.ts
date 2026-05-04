@@ -235,8 +235,12 @@ Deno.serve(async (req) => {
 
   const packageName = (payload.package_name ?? "").trim();
 
-  // 1. Fetch user categories
+  // 1. Fetch user categories.
+  // `db: { schema: "temanku" }` routes every .from()/.rpc() call in
+  // this function to our dedicated Postgres schema on the shared
+  // self-hosted Supabase, so we don't have to rewrite each query.
   const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    db: { schema: "temanku" },
     global: { headers: { Authorization: authHeader } },
     auth: { persistSession: false },
   });

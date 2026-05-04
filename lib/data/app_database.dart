@@ -12,6 +12,20 @@ class AppDatabase {
   bool _initialized = false;
 
   SupabaseClient get client => Supabase.instance.client;
+
+  /// Scoped query builder bound to our own Postgres schema (`temanku`).
+  ///
+  /// All TemanKu app tables live in the dedicated `temanku` schema on
+  /// the self-hosted Supabase instance — `public` stays reserved for
+  /// cross-app/stock objects (and for other apps like IngatanKu /
+  /// BensinKu that share the same Postgres). Using [client.schema] here
+  /// means every `.from(...)` and `.rpc(...)` call below resolves to
+  /// `temanku.<name>` without sprinkling the schema string all over the
+  /// codebase.
+  ///
+  /// NOTE: Keep using [client] directly for `.auth`, `.functions`, and
+  /// `.storage` — those are schema-independent.
+  SupabaseQuerySchema get db => client.schema('temanku');
   String? get currentUserId => client.auth.currentUser?.id;
 
   Future<void> init() async {
@@ -42,7 +56,7 @@ class AppDatabase {
   // ─── CATEGORIES ───────────────────────────────────────────────────────
 
   Future<List<Map<String, dynamic>>> getCategories(String type) async {
-    return await client
+    return await db
         .from('categories')
         .select()
         .eq('type', type)
@@ -50,15 +64,15 @@ class AppDatabase {
   }
 
   Future<Map<String, dynamic>> insertCategory(Map<String, dynamic> data) async {
-    return await client.from('categories').insert(data).select().single();
+    return await db.from('categories').insert(data).select().single();
   }
 
   Future<void> updateCategory(int id, Map<String, dynamic> data) async {
-    await client.from('categories').update(data).eq('id', id);
+    await db.from('categories').update(data).eq('id', id);
   }
 
   Future<void> deleteCategory(int id) async {
-    await client.from('categories').delete().eq('id', id);
+    await db.from('categories').delete().eq('id', id);
   }
 
   // ─── TRANSACTIONS ──────────────────────────────────────────────────────
@@ -69,7 +83,7 @@ class AppDatabase {
     String? type,
     int? limit,
   }) async {
-    var query = client
+    var query = db
         .from('transactions')
         .select('*, categories(name, emoji)');
 
@@ -95,27 +109,27 @@ class AppDatabase {
   Future<Map<String, dynamic>> insertTransaction(
     Map<String, dynamic> data,
   ) async {
-    return await client.from('transactions').insert(data).select().single();
+    return await db.from('transactions').insert(data).select().single();
   }
 
   Future<void> updateTransaction(int id, Map<String, dynamic> data) async {
-    await client.from('transactions').update(data).eq('id', id);
+    await db.from('transactions').update(data).eq('id', id);
   }
 
   Future<void> deleteTransaction(int id) async {
-    await client.from('transactions').delete().eq('id', id);
+    await db.from('transactions').delete().eq('id', id);
   }
 
   // ─── BUDGETS ───────────────────────────────────────────────────────────
 
   Future<List<Map<String, dynamic>>> getBudgetsWithSpent(String month) async {
-    final budgets = await client
+    final budgets = await db
         .from('budgets')
         .select('*, categories(name, emoji)')
         .eq('month', month);
 
     final lastDay = _lastDayOfMonth(month);
-    final trx = await client
+    final trx = await db
         .from('transactions')
         .select('category_id, amount')
         .eq('type', 'expense')
@@ -146,21 +160,21 @@ class AppDatabase {
   }
 
   Future<Map<String, dynamic>> insertBudget(Map<String, dynamic> data) async {
-    return await client.from('budgets').insert(data).select().single();
+    return await db.from('budgets').insert(data).select().single();
   }
 
   Future<void> updateBudget(int id, Map<String, dynamic> data) async {
-    await client.from('budgets').update(data).eq('id', id);
+    await db.from('budgets').update(data).eq('id', id);
   }
 
   Future<void> deleteBudget(int id) async {
-    await client.from('budgets').delete().eq('id', id);
+    await db.from('budgets').delete().eq('id', id);
   }
 
   // ─── SAVINGS ───────────────────────────────────────────────────────────
 
   Future<List<Map<String, dynamic>>> getSavingsGoals() async {
-    final goals = await client
+    final goals = await db
         .from('savings_goals')
         .select('*, savings_allocations(amount)')
         .order('created_at', ascending: false);
@@ -185,22 +199,22 @@ class AppDatabase {
   Future<Map<String, dynamic>> insertSavingsGoal(
     Map<String, dynamic> data,
   ) async {
-    return await client.from('savings_goals').insert(data).select().single();
+    return await db.from('savings_goals').insert(data).select().single();
   }
 
   Future<void> updateSavingsGoal(int id, Map<String, dynamic> data) async {
-    await client.from('savings_goals').update(data).eq('id', id);
+    await db.from('savings_goals').update(data).eq('id', id);
   }
 
   Future<void> deleteSavingsGoal(int id) async {
-    await client.from('savings_allocations').delete().eq('goal_id', id);
-    await client.from('savings_goals').delete().eq('id', id);
+    await db.from('savings_allocations').delete().eq('goal_id', id);
+    await db.from('savings_goals').delete().eq('id', id);
   }
 
   Future<Map<String, dynamic>> insertSavingsAllocation(
     Map<String, dynamic> data,
   ) async {
-    return await client
+    return await db
         .from('savings_allocations')
         .insert(data)
         .select()
@@ -210,7 +224,7 @@ class AppDatabase {
   // ─── ACCOUNT TRANSFERS ─────────────────────────────────────────────────
 
   Future<List<Map<String, dynamic>>> getAccountTransfers() async {
-    return await client
+    return await db
         .from('account_transfers')
         .select()
         .order('date', ascending: false)
@@ -218,7 +232,7 @@ class AppDatabase {
   }
 
   Future<void> deleteAccountTransfer(int id) async {
-    await client.from('account_transfers').delete().eq('id', id);
+    await db.from('account_transfers').delete().eq('id', id);
   }
 
   Future<void> insertAccountTransferWithFee({
@@ -229,7 +243,7 @@ class AppDatabase {
     String? note,
     double adminFee = 0,
   }) async {
-    await client.rpc('insert_transfer_with_fee', params: {
+    await db.rpc('insert_transfer_with_fee', params: {
       'p_date': dateIso,
       'p_from_account': fromAccount,
       'p_to_account': toAccount,
@@ -244,7 +258,7 @@ class AppDatabase {
   Future<List<Map<String, dynamic>>> accountBalancesAllTime() async {
     final base = {'Transfer': 0.0, 'Tunai': 0.0, 'E-Wallet': 0.0};
 
-    final trxRows = await client
+    final trxRows = await db
         .from('transactions')
         .select('account, type, amount')
         .inFilter('account', ['Transfer', 'Tunai', 'E-Wallet']);
@@ -258,7 +272,7 @@ class AppDatabase {
       }
     }
 
-    final transfers = await client
+    final transfers = await db
         .from('account_transfers')
         .select('from_account, to_account, amount');
 
@@ -281,7 +295,7 @@ class AppDatabase {
   Future<List<Map<String, dynamic>>> accountBalancesByMonth(String ym) async {
     final base = {'Transfer': 0.0, 'Tunai': 0.0, 'E-Wallet': 0.0};
 
-    final trxRows = await client
+    final trxRows = await db
         .from('transactions')
         .select('account, type, amount')
         .inFilter('account', ['Transfer', 'Tunai', 'E-Wallet'])
@@ -297,7 +311,7 @@ class AppDatabase {
       }
     }
 
-    final transfers = await client
+    final transfers = await db
         .from('account_transfers')
         .select('from_account, to_account, amount')
         .gte('date', '$ym-01')
@@ -332,7 +346,7 @@ class AppDatabase {
     //      the user's cumulative wallet, not just this month's net. Fixes
     //      the bug where a user starting a new month sees their balance
     //      reset to near-zero and panics about missing money.
-    final currentMonthFuture = client
+    final currentMonthFuture = db
         .from('transactions')
         .select(
           'type, amount, category_id, source_or_payee, date, id, account, notes',
@@ -340,7 +354,7 @@ class AppDatabase {
         .gte('date', startIso)
         .lte('date', endIso);
 
-    final priorMonthsFuture = client
+    final priorMonthsFuture = db
         .from('transactions')
         .select('type, amount')
         .lt('date', startIso);
@@ -388,7 +402,7 @@ class AppDatabase {
     final catIds = spendByCat.keys.toList();
     List<Map<String, dynamic>> spendList = [];
     if (catIds.isNotEmpty) {
-      final cats = await client
+      final cats = await db
           .from('categories')
           .select('id, name, emoji')
           .inFilter('id', catIds);
@@ -460,7 +474,7 @@ class AppDatabase {
     final uid = currentUserId;
     if (uid == null) return null;
     try {
-      final row = await client
+      final row = await db
           .from('profiles')
           .select()
           .eq('id', uid)
@@ -477,13 +491,13 @@ class AppDatabase {
   Future<void> updateProfile(Map<String, dynamic> data) async {
     final uid = currentUserId;
     if (uid == null) return;
-    await client.from('profiles').upsert({'id': uid, ...data});
+    await db.from('profiles').upsert({'id': uid, ...data});
   }
 
   // ─── DEBTS ───────────────────────────────────────────────────────────────
 
   Future<List<Map<String, dynamic>>> getDebts({String? status}) async {
-    var query = client.from('debts').select('*, debt_payments(amount)');
+    var query = db.from('debts').select('*, debt_payments(amount)');
     if (status != null) {
       query = query.eq('status', status);
     }
@@ -504,27 +518,27 @@ class AppDatabase {
   Future<Map<String, dynamic>> insertDebt(Map<String, dynamic> data) async {
     final uid = currentUserId;
     if (uid != null) data['user_id'] = uid;
-    return await client.from('debts').insert(data).select().single();
+    return await db.from('debts').insert(data).select().single();
   }
 
   Future<void> updateDebt(int id, Map<String, dynamic> data) async {
-    await client.from('debts').update(data).eq('id', id);
+    await db.from('debts').update(data).eq('id', id);
   }
 
   Future<void> deleteDebt(int id) async {
-    await client.from('debts').delete().eq('id', id);
+    await db.from('debts').delete().eq('id', id);
   }
 
   Future<void> insertDebtPayment(Map<String, dynamic> data) async {
     final uid = currentUserId;
     if (uid != null) data['user_id'] = uid;
-    await client.from('debt_payments').insert(data);
+    await db.from('debt_payments').insert(data);
   }
 
   // ─── EXPORT HELPER ─────────────────────────────────────────────────────
 
   Future<List<Map<String, dynamic>>> exportTransactions() async {
-    final rows = await client
+    final rows = await db
         .from('transactions')
         .select('date, type, amount, source_or_payee, account, notes, categories(name)')
         .order('date', ascending: false);
