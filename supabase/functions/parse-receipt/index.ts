@@ -1,7 +1,7 @@
 // supabase/functions/parse-receipt/index.ts
 //
 // Reads a photo of a paper/digital receipt and converts it into one or more
-// structured transaction drafts using GPT-4o vision.
+// structured transaction drafts using LLM vision.
 //
 // A single receipt usually maps to ONE transaction (the grand total). When a
 // receipt clearly bundles separate transactions — e.g. a transfer slip listing
@@ -30,11 +30,13 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
 const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
-const OPENAI_BASE_URL =
-  Deno.env.get("OPENAI_BASE_URL") ?? "https://api.openai.com/v1";
-// Vision needs the full model; mini is too unreliable for thermal receipts.
-const OPENAI_VISION_MODEL =
-  Deno.env.get("OPENAI_VISION_MODEL") ?? "gpt-4o";
+if (!OPENAI_API_KEY) throw new Error("Missing env: OPENAI_API_KEY");
+
+const OPENAI_BASE_URL = Deno.env.get("OPENAI_BASE_URL");
+if (!OPENAI_BASE_URL) throw new Error("Missing env: OPENAI_BASE_URL");
+
+const OPENAI_CHAT_MODEL = Deno.env.get("OPENAI_CHAT_MODEL");
+if (!OPENAI_CHAT_MODEL) throw new Error("Missing env: OPENAI_CHAT_MODEL");
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
@@ -245,7 +247,7 @@ Deno.serve(async (req) => {
     );
   }
 
-  // 2. Call GPT-4o vision with structured output.
+  // 2. Call LLM vision with structured output.
   const today = todayJakarta();
   const systemPrompt = buildSystemPrompt(categories, today);
   const dataUrl = `data:${mime};base64,${imageBase64}`;
@@ -257,7 +259,8 @@ Deno.serve(async (req) => {
       Authorization: `Bearer ${OPENAI_API_KEY}`,
     },
     body: JSON.stringify({
-      model: OPENAI_VISION_MODEL,
+      model: OPENAI_CHAT_MODEL,
+      stream: false,
       temperature: 0.1,
       response_format: { type: "json_object" },
       messages: [

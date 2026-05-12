@@ -1,7 +1,7 @@
 // supabase/functions/parse-notification/index.ts
 //
 // Parses a financial notification text (e.g. from GoPay, DANA, BCA)
-// into a structured transaction or account transfer using GPT-4o.
+// into a structured transaction or account transfer using LLM.
 //
 // Input  (POST JSON):
 //   { notification_text: string, package_name: string }
@@ -19,9 +19,13 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
 const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
-const OPENAI_BASE_URL =
-  Deno.env.get("OPENAI_BASE_URL") ?? "https://api.openai.com/v1";
-const OPENAI_MODEL = Deno.env.get("OPENAI_MODEL") ?? "gpt-4o-mini";
+if (!OPENAI_API_KEY) throw new Error("Missing env: OPENAI_API_KEY");
+
+const OPENAI_BASE_URL = Deno.env.get("OPENAI_BASE_URL");
+if (!OPENAI_BASE_URL) throw new Error("Missing env: OPENAI_BASE_URL");
+
+const OPENAI_CHAT_MODEL = Deno.env.get("OPENAI_CHAT_MODEL");
+if (!OPENAI_CHAT_MODEL) throw new Error("Missing env: OPENAI_CHAT_MODEL");
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
@@ -277,7 +281,8 @@ Deno.serve(async (req) => {
       Authorization: `Bearer ${OPENAI_API_KEY}`,
     },
     body: JSON.stringify({
-      model: OPENAI_MODEL,
+      model: OPENAI_CHAT_MODEL,
+      stream: false,
       temperature: 0.05,
       response_format: { type: "json_object" },
       messages: [
